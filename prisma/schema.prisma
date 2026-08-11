@@ -1,0 +1,83 @@
+// Esquema de base de datos - Gimnasio App
+// Ejecutar: npx prisma migrate dev --name init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+// Tarifa contratada: cuántos días por semana puede reservar el usuario
+enum WeeklyPlan {
+  ONE_DAY    // 1 día/semana
+  TWO_DAYS   // 2 días/semana
+  THREE_DAYS // 3 días/semana
+}
+
+enum BookingStatus {
+  CONFIRMED
+  CANCELLED_ON_TIME   // Cancelada con >= 3h de antelación -> libera hueco y NO consume el día
+  CANCELLED_LATE      // Cancelada con < 3h de antelación -> libera hueco pero SÍ consume el día (lo pierde)
+}
+
+model User {
+  id           String     @id @default(cuid())
+  name         String
+  email        String     @unique
+  passwordHash String?    // null si el admin lo crea manualmente sin acceso aún
+  role         Role       @default(USER)
+  weeklyPlan   WeeklyPlan @default(ONE_DAY)
+  createdByAdmin Boolean  @default(false) // true si fue dado de alta manualmente por el admin
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  bookings     Booking[]
+  payments     Payment[]
+}
+
+// Una clase concreta en un día y hora, con aforo limitado
+model ClassSession {
+  id        String    @id @default(cuid())
+  date      DateTime  // fecha y hora de inicio de la clase
+  capacity  Int       // aforo máximo
+  createdAt DateTime  @default(now())
+
+  bookings  Booking[]
+
+  @@index([date])
+}
+
+// Reserva de un usuario sobre una clase concreta
+model Booking {
+  id             String        @id @default(cuid())
+  userId         String
+  classSessionId String
+  status         BookingStatus @default(CONFIRMED)
+  createdAt      DateTime      @default(now())
+  cancelledAt    DateTime?
+
+  user         User         @relation(fields: [userId], references: [id])
+  classSession ClassSession @relation(fields: [classSessionId], references: [id])
+
+  @@unique([userId, classSessionId]) // un usuario no puede reservar 2 veces la misma clase
+  @@index([classSessionId])
+}
+
+model Payment {
+  id         String     @id @default(cuid())
+  userId     String
+  weeklyPlan WeeklyPlan
+  amount     Float
+  paidAt     DateTime   @default(now())
+  validUntil DateTime   // hasta cuándo cubre este pago
+
+  user User @relation(fields: [userId], references: [id])
+}

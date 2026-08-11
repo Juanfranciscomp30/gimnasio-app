@@ -1,0 +1,27 @@
+# dependencias
+/node_modules
+
+# next.js
+/.next/
+/out/
+
+# producción
+/build
+
+# variables de entorno (nunca subir credenciales reales)
+.env
+.env.local
+.env.production
+
+# PWA generado automáticamente
+/public/sw.js
+/public/workbox-*.js
+
+# misc
+.DS_Store
+*.pem
+npm-debug.log*
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
