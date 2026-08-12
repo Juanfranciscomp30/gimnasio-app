@@ -38,3 +38,27 @@ export const LIMITE_POR_PLAN: Record<'ONE_DAY' | 'TWO_DAYS' | 'THREE_DAYS', numb
  *       CANCELLED_LATE SÍ cuenta para el límite semanal (se pierde el día),
  *       pero el hueco de aforo de la clase se libera en ambos casos.
  */
+
+/**
+ * Devuelve el lunes (00:00:00) de la semana a la que pertenece la fecha dada.
+ * Usamos lunes como inicio de semana (estándar en España/Europa).
+ */
+export function inicioDeSemana(fecha: Date): Date {
+  const d = new Date(fecha);
+  const diaSemana = d.getDay(); // 0 = domingo, 1 = lunes, ... 6 = sábado
+  const diferencia = diaSemana === 0 ? -6 : 1 - diaSemana;
+  d.setDate(d.getDate() + diferencia);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+/**
+ * Devuelve el inicio de la semana SIGUIENTE (límite exclusivo), útil para
+ * hacer consultas tipo "fecha >= inicio Y fecha < fin".
+ */
+export function finDeSemana(fecha: Date): Date {
+  const inicio = inicioDeSemana(fecha);
+  const fin = new Date(inicio);
+  fin.setDate(fin.getDate() + 7);
+  return fin;
+}
