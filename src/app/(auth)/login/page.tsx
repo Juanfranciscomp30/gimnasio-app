@@ -17,9 +17,6 @@ export default function LoginPage() {
     setError('');
     setCargando(true);
 
-    // signIn('credentials', ...) llama por debajo a la función authorize()
-    // que definimos en lib/auth.ts. redirect: false evita que NextAuth
-    // redirija automáticamente, así podemos controlar el error nosotros mismos.
     const resultado = await signIn('credentials', {
       email,
       password,
@@ -33,8 +30,6 @@ export default function LoginPage() {
       return;
     }
 
-   // Login correcto. Consultamos la sesión recién creada para saber el rol
-    // y mandar a cada usuario a SU interfaz correspondiente.
     const session = await getSession();
 
     if ((session?.user as any)?.role === 'ADMIN') {
@@ -42,54 +37,63 @@ export default function LoginPage() {
     } else {
       router.push('/mis-clases');
     }
-    router.refresh(); // fuerza a que la app relea la sesión ya iniciada
+    router.refresh();
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gray-50">
+    <main className="min-h-screen flex items-center justify-center bg-page px-5">
       <form
         onSubmit={handleSubmit}
-        className="bg-white p-8 rounded-lg shadow-md w-full max-w-sm space-y-4"
+        className="bg-card p-8 rounded-2xl w-full max-w-sm space-y-5"
       >
-        <h1 className="text-xl font-bold text-center">Iniciar sesión</h1>
+        <div>
+          <p className="text-accent text-xs font-semibold tracking-widest uppercase mb-1">
+            Bienvenido de nuevo
+          </p>
+          <h1 className="text-2xl font-extrabold text-white">Iniciar sesión</h1>
+        </div>
 
         {error && (
-          <p className="text-red-600 text-sm bg-red-50 p-2 rounded">{error}</p>
+          <p className="text-danger text-sm bg-dangersoft border border-danger/30 px-3 py-2 rounded-xl">
+            {error}
+          </p>
         )}
 
         <div>
-          <label className="block text-sm font-medium mb-1">Email</label>
+          <label className="block text-xs font-semibold text-gray-400 mb-1.5">Email</label>
           <input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="w-full border rounded px-3 py-2"
+            className="w-full bg-page border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder:text-gray-600 focus:outline-none focus:border-accent/60"
+            placeholder="tucorreo@ejemplo.com"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-1">Contraseña</label>
+          <label className="block text-xs font-semibold text-gray-400 mb-1.5">Contraseña</label>
           <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            className="w-full border rounded px-3 py-2"
+            className="w-full bg-page border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder:text-gray-600 focus:outline-none focus:border-accent/60"
+            placeholder="••••••••"
           />
         </div>
 
         <button
           type="submit"
           disabled={cargando}
-          className="w-full bg-gray-900 text-white py-2 rounded hover:bg-gray-800 disabled:opacity-50"
+          className="w-full bg-accent text-page font-bold py-2.5 rounded-xl hover:brightness-95 disabled:opacity-50 transition"
         >
           {cargando ? 'Entrando...' : 'Entrar'}
         </button>
 
-        <p className="text-sm text-center text-gray-600">
+        <p className="text-sm text-center text-gray-500">
           ¿No tienes cuenta?{' '}
-          <a href="/register" className="underline">
+          <a href="/register" className="text-accent font-semibold hover:underline">
             Regístrate
           </a>
         </p>

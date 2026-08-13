@@ -1,15 +1,9 @@
 'use client';
-// 'use client' le dice a Next.js: "este componente necesita ejecutarse en el
-// navegador, no solo en el servidor", porque usamos useState, onClick, etc.
-// Sin esto, Next.js asumiría que es un componente de servidor y fallaría.
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function RegisterPage() {
-  // useState crea una "variable reactiva": cuando cambia, React vuelve a
-  // pintar el componente automáticamente. formData guarda lo que el usuario
-  // escribe en el formulario.
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -19,17 +13,14 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [cargando, setCargando] = useState(false);
 
-  const router = useRouter(); // nos permite redirigir a otra página tras registrarnos
+  const router = useRouter();
 
-  // Esta función se ejecuta cada vez que el usuario escribe en CUALQUIER
-  // input (usamos el mismo "name" del input para saber cuál actualizar)
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   }
 
-  // Esta función se ejecuta al enviar el formulario
   async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault(); // evita que la página se recargue (comportamiento por defecto de un <form>)
+    e.preventDefault();
     setError('');
     setCargando(true);
 
@@ -47,7 +38,6 @@ export default function RegisterPage() {
         return;
       }
 
-      // Registro correcto -> lo mandamos a la página de login
       router.push('/login');
     } catch (err) {
       setError('Error de conexión, inténtalo de nuevo');
@@ -57,43 +47,52 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gray-50">
+    <main className="min-h-screen flex items-center justify-center bg-page px-5">
       <form
         onSubmit={handleSubmit}
-        className="bg-white p-8 rounded-lg shadow-md w-full max-w-sm space-y-4"
+        className="bg-card p-8 rounded-2xl w-full max-w-sm space-y-5"
       >
-        <h1 className="text-xl font-bold text-center">Crear cuenta</h1>
+        <div>
+          <p className="text-accent text-xs font-semibold tracking-widest uppercase mb-1">
+            Únete al gimnasio
+          </p>
+          <h1 className="text-2xl font-extrabold text-white">Crear cuenta</h1>
+        </div>
 
         {error && (
-          <p className="text-red-600 text-sm bg-red-50 p-2 rounded">{error}</p>
+          <p className="text-danger text-sm bg-dangersoft border border-danger/30 px-3 py-2 rounded-xl">
+            {error}
+          </p>
         )}
 
         <div>
-          <label className="block text-sm font-medium mb-1">Nombre</label>
+          <label className="block text-xs font-semibold text-gray-400 mb-1.5">Nombre</label>
           <input
             type="text"
             name="name"
             value={formData.name}
             onChange={handleChange}
             required
-            className="w-full border rounded px-3 py-2"
+            className="w-full bg-page border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder:text-gray-600 focus:outline-none focus:border-accent/60"
+            placeholder="Tu nombre"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-1">Email</label>
+          <label className="block text-xs font-semibold text-gray-400 mb-1.5">Email</label>
           <input
             type="email"
             name="email"
             value={formData.email}
             onChange={handleChange}
             required
-            className="w-full border rounded px-3 py-2"
+            className="w-full bg-page border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder:text-gray-600 focus:outline-none focus:border-accent/60"
+            placeholder="tucorreo@ejemplo.com"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-1">Contraseña</label>
+          <label className="block text-xs font-semibold text-gray-400 mb-1.5">Contraseña</label>
           <input
             type="password"
             name="password"
@@ -101,21 +100,22 @@ export default function RegisterPage() {
             onChange={handleChange}
             required
             minLength={6}
-            className="w-full border rounded px-3 py-2"
+            className="w-full bg-page border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder:text-gray-600 focus:outline-none focus:border-accent/60"
+            placeholder="Mínimo 6 caracteres"
           />
         </div>
 
         <button
           type="submit"
           disabled={cargando}
-          className="w-full bg-gray-900 text-white py-2 rounded hover:bg-gray-800 disabled:opacity-50"
+          className="w-full bg-accent text-page font-bold py-2.5 rounded-xl hover:brightness-95 disabled:opacity-50 transition"
         >
           {cargando ? 'Creando cuenta...' : 'Registrarme'}
         </button>
 
-        <p className="text-sm text-center text-gray-600">
+        <p className="text-sm text-center text-gray-500">
           ¿Ya tienes cuenta?{' '}
-          <a href="/login" className="underline">
+          <a href="/login" className="text-accent font-semibold hover:underline">
             Inicia sesión
           </a>
         </p>
