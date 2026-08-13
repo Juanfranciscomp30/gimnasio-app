@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { inicioDeSemana, finDeSemana, LIMITE_POR_PLAN } from '@/lib/booking-logic';
+import { estaVencido } from '@/lib/payment-logic';
 
 const crearReservaSchema = z.object({
   classSessionId: z.string(),
@@ -59,7 +60,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Ya estás apuntado a esta clase' }, { status: 409 });
     }
 
-    // 3. Comprobar el límite semanal según la tarifa del usuario
+    // 3. Comprobar que el usuario tiene el pago al día. Sin esto, alguien
+    // podría seguir reservando clases indefinidamente sin haber pagado nunca.
+    const ultimoPago = await prisma.payment.findFirst({
+      where: { userId },
+      orderBy: { paidAt: 'desc' },
+    });
+
+    if (!ultimoPago || estaVencido(ultimoPago.validUntil)) {
+      return NextResponse.json(
+        { error: 'Tu pago está vencido o no consta ningún pago. Contacta con el gimnasio para renovarlo.' },
+        { status: 403 }
+      );
+    }
+
+    // 4. Comprobar el límite semanal según la tarifa del usuario
     const usuario = await prisma.user.findUnique({ where: { id: userId } });
     if (!usuario) {
       return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
