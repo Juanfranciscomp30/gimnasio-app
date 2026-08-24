@@ -62,3 +62,40 @@ export function finDeSemana(fecha: Date): Date {
   fin.setDate(fin.getDate() + 7);
   return fin;
 }
+
+/**
+ * Genera las fechas+hora para una serie de clases recurrentes.
+ * daysOfWeek usa el mismo formato que Date.getDay(): 0 = domingo ... 6 = sábado.
+ * Descarta automáticamente cualquier fecha que ya haya pasado.
+ */
+export function generarFechasRecurrentes({
+  startDate,
+  daysOfWeek,
+  time,
+  endDate,
+}: {
+  startDate: Date;
+  daysOfWeek: number[];
+  time: string; // "HH:MM"
+  endDate: Date;
+}): Date[] {
+  const [horas, minutos] = time.split(':').map(Number);
+  const fechas: Date[] = [];
+  const MAX_CLASES = 200; // límite de seguridad por si hay un error en las fechas
+
+  const cursor = new Date(startDate);
+  cursor.setHours(0, 0, 0, 0);
+
+  while (cursor <= endDate && fechas.length < MAX_CLASES) {
+    if (daysOfWeek.includes(cursor.getDay())) {
+      const fecha = new Date(cursor);
+      fecha.setHours(horas, minutos, 0, 0);
+      if (fecha.getTime() > Date.now()) {
+        fechas.push(fecha);
+      }
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return fechas;
+}
