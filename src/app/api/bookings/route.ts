@@ -47,6 +47,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'La clase no existe' }, { status: 404 });
     }
 
+    if (clase.cancelled) {
+      return NextResponse.json({ error: 'Esta clase ha sido cancelada' }, { status: 409 });
+    }
+
     // 1. Comprobar que no esté ya apuntado (o en espera) en esta misma clase
     const reservaExistente = await prisma.booking.findUnique({
       where: { userId_classSessionId: { userId, classSessionId } },
