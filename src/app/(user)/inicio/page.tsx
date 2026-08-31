@@ -12,6 +12,8 @@ import {
   faCircleCheck,
   faDumbbell,
   faArrowRight,
+  faBell,
+  faXmark,
 } from '@fortawesome/free-solid-svg-icons';
 import { HORAS_LIMITE_CANCELACION } from '@/lib/booking-logic';
 
@@ -19,6 +21,12 @@ type ProximaClase = {
   bookingId: string;
   classSessionId: string;
   date: string;
+};
+
+type Notificacion = {
+  id: string;
+  message: string;
+  createdAt: string;
 };
 
 type Resumen = {
@@ -63,13 +71,26 @@ export default function InicioPage() {
   const { data: session } = useSession();
   const [resumen, setResumen] = useState<Resumen | null>(null);
   const [cargando, setCargando] = useState(true);
+  const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
 
   useEffect(() => {
     fetch('/api/dashboard')
       .then((res) => (res.ok ? res.json() : null))
       .then(setResumen)
       .finally(() => setCargando(false));
+
+    fetch('/api/notifications')
+      .then((res) => (res.ok ? res.json() : []))
+      .then(setNotificaciones)
+      .catch(() => {});
   }, []);
+
+  // El usuario descarta el aviso: lo quitamos ya de la lista (sensación
+  // instantánea) y en paralelo lo marcamos como leído en el servidor.
+  async function descartarNotificacion(id: string) {
+    setNotificaciones((actuales) => actuales.filter((n) => n.id !== id));
+    fetch(`/api/notifications/${id}`, { method: 'PATCH' }).catch(() => {});
+  }
 
   const ahora = new Date();
   const hoy = soloFecha(ahora);
@@ -136,6 +157,27 @@ export default function InicioPage() {
         <h1 className="text-xl font-extrabold mb-5">
           Hola{nombrePila ? `, ${nombrePila}` : ''}
         </h1>
+
+        {notificaciones.length > 0 && (
+          <div className="mb-4 space-y-2">
+            {notificaciones.map((n) => (
+              <div
+                key={n.id}
+                className="bg-accentsoft border border-accent/30 text-sm px-4 py-3 rounded-xl flex items-start gap-2"
+              >
+                <FontAwesomeIcon icon={faBell} className="w-3.5 h-3.5 mt-0.5 shrink-0 text-accent" />
+                <span className="flex-1 text-gray-200">{n.message}</span>
+                <button
+                  onClick={() => descartarNotificacion(n.id)}
+                  className="text-gray-500 hover:text-gray-300 shrink-0"
+                  aria-label="Descartar aviso"
+                >
+                  <FontAwesomeIcon icon={faXmark} className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
 
         {resumen.cancellationRequested && (
           <div className="mb-4 bg-dangersoft border border-danger/30 text-danger text-sm px-4 py-3 rounded-xl flex items-start gap-2">

@@ -45,8 +45,9 @@ model User {
   cancellationRequested    Boolean   @default(false)
   cancellationRequestedAt  DateTime?
 
-  bookings     Booking[]
-  payments     Payment[]
+  bookings      Booking[]
+  payments      Payment[]
+  notifications Notification[]
 }
 
 // Una clase concreta en un día y hora, con aforo limitado
@@ -54,6 +55,7 @@ model ClassSession {
   id        String    @id @default(cuid())
   date      DateTime  // fecha y hora de inicio de la clase
   capacity  Int       // aforo máximo
+  cancelled Boolean   @default(false) // clase cancelada por el gimnasio (no se borra, se conserva el historial)
   createdAt DateTime  @default(now())
 
   bookings  Booking[]
@@ -86,4 +88,31 @@ model Payment {
   validUntil DateTime   // hasta cuándo cubre este pago
 
   user User @relation(fields: [userId], references: [id])
+}
+
+// Gasto del gimnasio (luz, maquinaria, etc.) — no está ligado a ningún
+// usuario, es solo para que el admin lleve el control de sus costes.
+model Expense {
+  id        String   @id @default(cuid())
+  concept   String
+  amount    Float
+  category  String?
+  date      DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  @@index([date])
+}
+
+// Aviso dentro de la app para un usuario (ej: "tu clase cambió de hora").
+// Sin email ni push: se muestra en /inicio hasta que el usuario la descarta.
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, read])
 }

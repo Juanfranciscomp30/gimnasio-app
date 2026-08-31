@@ -37,6 +37,7 @@ export async function GET() {
       createdAt: true,
       cancellationRequested: true,
       cancellationRequestedAt: true,
+      profileImageUrl: true,
     },
     orderBy: { createdAt: 'desc' },
   });

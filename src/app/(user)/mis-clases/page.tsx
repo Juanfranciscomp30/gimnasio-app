@@ -12,6 +12,7 @@ type Clase = {
   id: string;
   date: string;
   capacity: number;
+  cancelled: boolean;
   _count: { bookings: number };
   asistentes: Asistente[];
   enEspera: number;
@@ -179,7 +180,7 @@ export default function MisClasesPage() {
     mesReferencia.getMonth() === hoy.getMonth();
 
   const clasesDelDia = clases
-    .filter((c) => mismodia(new Date(c.date), diaSeleccionado))
+    .filter((c) => !c.cancelled && mismodia(new Date(c.date), diaSeleccionado))
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   const franjas: { titulo: string; desde: number; hasta: number }[] = [
