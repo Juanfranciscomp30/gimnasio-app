@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faCalendarDays,
@@ -16,6 +17,9 @@ import {
   faXmark,
 } from '@fortawesome/free-solid-svg-icons';
 import { HORAS_LIMITE_CANCELACION } from '@/lib/booking-logic';
+import { staggerContainer, fadeUpItem, hoverLift, tapScale } from '@/lib/motion';
+import AnimatedNumber from '@/components/ui/AnimatedNumber';
+import Skeleton from '@/components/ui/Skeleton';
 
 type ProximaClase = {
   bookingId: string;
@@ -67,6 +71,22 @@ function cuentaAtras(fecha: Date, ahora: Date): string {
   return `en ${Math.round(horas / 24)} días`;
 }
 
+function PantallaCarga() {
+  return (
+    <div className="min-h-screen bg-page">
+      <div className="max-w-sm sm:max-w-3xl mx-auto px-5 pt-6 space-y-3">
+        <Skeleton className="h-3 w-28" />
+        <Skeleton className="h-7 w-40" />
+        <Skeleton className="h-44 mt-2" />
+        <div className="grid grid-cols-2 gap-3">
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function InicioPage() {
   const { data: session } = useSession();
   const [resumen, setResumen] = useState<Resumen | null>(null);
@@ -97,7 +117,7 @@ export default function InicioPage() {
   const nombrePila = (resumen?.nombre ?? session?.user?.name ?? '').split(' ')[0];
 
   if (cargando) {
-    return <div className="min-h-screen bg-page" />;
+    return <PantallaCarga />;
   }
 
   if (!resumen) {
@@ -149,21 +169,31 @@ export default function InicioPage() {
   };
 
   return (
-    <div className="min-h-screen bg-page pb-24">
-      <div className="max-w-sm mx-auto px-5 pt-6">
-        <p className="text-accent text-[11px] font-semibold tracking-widest uppercase mb-1">
-          {hoy.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
-        </p>
-        <h1 className="text-xl font-extrabold mb-5">
-          Hola{nombrePila ? `, ${nombrePila}` : ''}
-        </h1>
+    <div className="min-h-screen bg-page bg-gradient-hero bg-no-repeat pb-24">
+      <motion.div
+        variants={staggerContainer}
+        initial="hidden"
+        animate="show"
+        className="max-w-sm sm:max-w-3xl mx-auto px-5 pt-6 lg:grid lg:grid-cols-5 lg:gap-6 lg:items-start"
+      >
+        <div className="lg:col-span-3">
+          <motion.p variants={fadeUpItem} className="text-accent text-[11px] font-semibold tracking-widest uppercase mb-1">
+            {hoy.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+          </motion.p>
+          <motion.h1 variants={fadeUpItem} className="text-2xl sm:text-3xl font-extrabold mb-5 tracking-tight">
+            Hola{nombrePila ? `, ${nombrePila}` : ''} <span className="inline-block">💪</span>
+          </motion.h1>
 
-        {notificaciones.length > 0 && (
-          <div className="mb-4 space-y-2">
+          <AnimatePresence initial={false}>
             {notificaciones.map((n) => (
-              <div
+              <motion.div
                 key={n.id}
-                className="bg-accentsoft border border-accent/30 text-sm px-4 py-3 rounded-xl flex items-start gap-2"
+                layout
+                initial={{ opacity: 0, y: -10, height: 0, marginBottom: 0 }}
+                animate={{ opacity: 1, y: 0, height: 'auto', marginBottom: 8 }}
+                exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                transition={{ duration: 0.25 }}
+                className="bg-accentsoft border border-accent/30 text-sm px-4 py-3 rounded-xl flex items-start gap-2 overflow-hidden"
               >
                 <FontAwesomeIcon icon={faBell} className="w-3.5 h-3.5 mt-0.5 shrink-0 text-accent" />
                 <span className="flex-1 text-gray-200">{n.message}</span>
@@ -174,172 +204,192 @@ export default function InicioPage() {
                 >
                   <FontAwesomeIcon icon={faXmark} className="w-3.5 h-3.5" />
                 </button>
-              </div>
+              </motion.div>
             ))}
-          </div>
-        )}
+          </AnimatePresence>
 
-        {resumen.cancellationRequested && (
-          <div className="mb-4 bg-dangersoft border border-danger/30 text-danger text-sm px-4 py-3 rounded-xl flex items-start gap-2">
-            <FontAwesomeIcon icon={faTriangleExclamation} className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-            <span>Has solicitado la baja. No puedes reservar clases nuevas mientras esté pendiente de revisión.</span>
-          </div>
-        )}
+          {resumen.cancellationRequested && (
+            <motion.div
+              variants={fadeUpItem}
+              className="mb-4 bg-dangersoft border border-danger/30 text-danger text-sm px-4 py-3 rounded-xl flex items-start gap-2"
+            >
+              <FontAwesomeIcon icon={faTriangleExclamation} className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+              <span>Has solicitado la baja. No puedes reservar clases nuevas mientras esté pendiente de revisión.</span>
+            </motion.div>
+          )}
 
-        {estadoPago.tono !== 'ok' && (
-          <div
-            className={`mb-4 border text-sm px-4 py-3 rounded-xl flex items-start gap-2 ${
-              estadoPago.tono === 'mal'
-                ? 'bg-dangersoft border-danger/30 text-danger'
-                : 'bg-amber-400/10 border-amber-400/30 text-amber-400'
-            }`}
-          >
-            <FontAwesomeIcon icon={faCreditCard} className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-            <span>
-              {!resumen.pago && 'No tienes ningún pago registrado. Contacta con el gimnasio para activar tu cuota.'}
-              {resumen.pago?.vencido &&
-                `Tu cuota está vencida desde el ${new Date(resumen.pago.validUntil).toLocaleDateString('es-ES')}. Contacta con el gimnasio para renovarla.`}
-              {resumen.pago?.venceProto &&
-                `Tu cuota vence pronto, el ${new Date(resumen.pago.validUntil).toLocaleDateString('es-ES')}.`}
-            </span>
-          </div>
-        )}
+          {estadoPago.tono !== 'ok' && (
+            <motion.div
+              variants={fadeUpItem}
+              className={`mb-4 border text-sm px-4 py-3 rounded-xl flex items-start gap-2 ${
+                estadoPago.tono === 'mal'
+                  ? 'bg-dangersoft border-danger/30 text-danger'
+                  : 'bg-amber-400/10 border-amber-400/30 text-amber-400'
+              }`}
+            >
+              <FontAwesomeIcon icon={faCreditCard} className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+              <span>
+                {!resumen.pago && 'No tienes ningún pago registrado. Contacta con el gimnasio para activar tu cuota.'}
+                {resumen.pago?.vencido &&
+                  `Tu cuota está vencida desde el ${new Date(resumen.pago.validUntil).toLocaleDateString('es-ES')}. Contacta con el gimnasio para renovarla.`}
+                {resumen.pago?.venceProto &&
+                  `Tu cuota vence pronto, el ${new Date(resumen.pago.validUntil).toLocaleDateString('es-ES')}.`}
+              </span>
+            </motion.div>
+          )}
 
-        {/* Próxima clase — la pieza principal de la página */}
-        {proximaClase ? (
-          <div
-            className={`bg-card rounded-2xl p-5 mb-3 border ${
-              claseMuyCerca ? 'border-amber-400/40' : 'border-accent/20'
-            }`}
-          >
-            <Link href="/mis-clases" className="block hover:opacity-90 transition-opacity">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-[11px] font-bold uppercase tracking-widest text-accent">
-                  Tu próxima clase
-                </p>
-                <span
-                  className={`text-[11px] ${
-                    claseMuyCerca ? 'text-amber-400 font-bold' : 'text-gray-500 font-semibold'
-                  }`}
-                >
-                  {cuentaAtras(new Date(proximaClase.date), ahora)}
-                </span>
-              </div>
-              <div className="flex items-end justify-between">
-                <div>
-                  <p className="text-3xl font-extrabold text-white leading-none mb-1.5">
-                    {new Date(proximaClase.date).toLocaleTimeString('es-ES', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
+          {/* Próxima clase — la pieza principal de la página */}
+          {proximaClase ? (
+            <motion.div
+              variants={fadeUpItem}
+              whileHover={hoverLift}
+              className={`relative overflow-hidden bg-card bg-gradient-card-glow rounded-2xl p-5 mb-3 border transition-shadow ${
+                claseMuyCerca ? 'border-amber-400/40' : 'border-accent/20 hover:shadow-glow'
+              }`}
+            >
+              <Link href="/mis-clases" className="block">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-[11px] font-bold uppercase tracking-widest text-accent">
+                    Tu próxima clase
                   </p>
-                  <p className="text-sm text-gray-400 capitalize">
-                    {etiquetaDia(new Date(proximaClase.date), hoy)}
-                  </p>
+                  <span
+                    className={`text-[11px] px-2 py-0.5 rounded-full ${
+                      claseMuyCerca
+                        ? 'text-amber-400 font-bold bg-amber-400/10 animate-pulse-glow'
+                        : 'text-gray-400 font-semibold bg-white/5'
+                    }`}
+                  >
+                    {cuentaAtras(new Date(proximaClase.date), ahora)}
+                  </span>
                 </div>
-                <FontAwesomeIcon icon={faArrowRight} className="w-4 h-4 text-gray-600" />
-              </div>
-              {claseMuyCerca && (
-                <p className="text-[11px] text-amber-400 mt-2 flex items-center gap-1.5">
-                  <FontAwesomeIcon icon={faTriangleExclamation} className="w-2.5 h-2.5" />
-                  Si cancelas ahora ya cuenta como tardío: perderías el día.
+                <div className="flex items-end justify-between">
+                  <div>
+                    <p className="text-4xl font-extrabold text-white leading-none mb-1.5 tabular-nums">
+                      {new Date(proximaClase.date).toLocaleTimeString('es-ES', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </p>
+                    <p className="text-sm text-gray-400 capitalize">
+                      {etiquetaDia(new Date(proximaClase.date), hoy)}
+                    </p>
+                  </div>
+                  <motion.span whileHover={{ x: 3 }} className="text-gray-600">
+                    <FontAwesomeIcon icon={faArrowRight} className="w-4 h-4" />
+                  </motion.span>
+                </div>
+                {claseMuyCerca && (
+                  <p className="text-[11px] text-amber-400 mt-2 flex items-center gap-1.5">
+                    <FontAwesomeIcon icon={faTriangleExclamation} className="w-2.5 h-2.5" />
+                    Si cancelas ahora ya cuenta como tardío: perderías el día.
+                  </p>
+                )}
+              </Link>
+              <a
+                href={`/api/bookings/${proximaClase.bookingId}/ics`}
+                download
+                className="block text-center text-[11px] text-gray-500 hover:text-accent mt-3 pt-3 border-t border-white/5 transition-colors"
+              >
+                Añadir al calendario
+              </a>
+            </motion.div>
+          ) : (
+            <motion.div variants={fadeUpItem} whileHover={hoverLift} whileTap={tapScale}>
+              <Link
+                href="/mis-clases"
+                className="block bg-card hover:bg-cardhover transition-colors rounded-2xl p-8 mb-3 text-center"
+              >
+                <FontAwesomeIcon icon={faDumbbell} className="w-7 h-7 text-accent mb-3 animate-float" />
+                <p className="text-sm font-semibold text-gray-200 mb-1">Aún no tienes clases reservadas</p>
+                <p className="text-xs text-accent font-semibold">
+                  Reservar una clase <FontAwesomeIcon icon={faArrowRight} className="w-2.5 h-2.5 ml-0.5" />
                 </p>
-              )}
-            </Link>
-            <a
-              href={`/api/bookings/${proximaClase.bookingId}/ics`}
-              download
-              className="block text-center text-[11px] text-gray-500 hover:text-accent mt-3 pt-3 border-t border-white/5"
-            >
-              Añadir al calendario
-            </a>
-          </div>
-        ) : (
-          <Link
-            href="/mis-clases"
-            className="block bg-card hover:bg-cardhover transition-colors rounded-2xl p-6 mb-3 text-center"
-          >
-            <FontAwesomeIcon icon={faDumbbell} className="w-6 h-6 text-gray-600 mb-2" />
-            <p className="text-sm font-semibold text-gray-300 mb-1">Aún no tienes clases reservadas</p>
-            <p className="text-xs text-accent font-semibold">
-              Reservar una clase <FontAwesomeIcon icon={faArrowRight} className="w-2.5 h-2.5 ml-0.5" />
-            </p>
-          </Link>
-        )}
+              </Link>
+            </motion.div>
+          )}
 
-        {/* Siguientes clases (si hay más de una) */}
-        {siguientes.length > 0 && (
-          <div className="bg-card rounded-2xl p-4 mb-3 space-y-2.5">
-            <p className="text-[11px] font-bold uppercase tracking-widest text-gray-500 mb-1">
-              Después de esta
-            </p>
-            {siguientes.map((c) => (
-              <div key={c.bookingId} className="flex items-center gap-2.5 text-sm">
-                <FontAwesomeIcon icon={faCalendarDays} className="w-3 h-3 text-gray-600" />
-                <span className="text-gray-300 capitalize">{etiquetaDia(new Date(c.date), hoy)}</span>
-                <span className="text-gray-500">·</span>
-                <span className="text-gray-400">
-                  {new Date(c.date).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-                </span>
+          {/* Siguientes clases (si hay más de una) */}
+          {siguientes.length > 0 && (
+            <motion.div variants={fadeUpItem} className="bg-card rounded-2xl p-4 mb-3 space-y-2.5">
+              <p className="text-[11px] font-bold uppercase tracking-widest text-gray-500 mb-1">
+                Después de esta
+              </p>
+              {siguientes.map((c) => (
+                <div key={c.bookingId} className="flex items-center gap-2.5 text-sm">
+                  <FontAwesomeIcon icon={faCalendarDays} className="w-3 h-3 text-gray-600" />
+                  <span className="text-gray-300 capitalize">{etiquetaDia(new Date(c.date), hoy)}</span>
+                  <span className="text-gray-500">·</span>
+                  <span className="text-gray-400">
+                    {new Date(c.date).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+              ))}
+            </motion.div>
+          )}
+        </div>
+
+        <div className="lg:col-span-2">
+          {/* Uso semanal + membresía */}
+          <div className="grid grid-cols-2 lg:grid-cols-1 gap-3 mb-3">
+            <motion.div variants={fadeUpItem} whileHover={hoverLift} className="bg-card rounded-2xl p-4">
+              <div className="flex items-center gap-1.5 mb-2">
+                <FontAwesomeIcon icon={faClock} className="w-3 h-3 text-gray-500" />
+                <p className="text-[11px] font-bold uppercase tracking-widest text-gray-500">Esta semana</p>
               </div>
-            ))}
-          </div>
-        )}
+              <p className="text-lg font-extrabold mb-1.5 tabular-nums">
+                <AnimatedNumber value={resumen.usoSemanal.usadas} />
+                <span className="text-gray-500 text-sm font-semibold"> / {resumen.usoSemanal.limite}</span>
+              </p>
+              <div className="h-1.5 w-full bg-page rounded-full overflow-hidden mb-1">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${ocupacionSemanal * 100}%` }}
+                  transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.15 }}
+                  className={`h-full rounded-full ${semanaCompleta ? 'bg-danger' : 'bg-accent'}`}
+                />
+              </div>
+              <p className="text-[11px] text-gray-500">{ETIQUETA_PLAN[resumen.weeklyPlan]}</p>
+            </motion.div>
 
-        {/* Uso semanal + membresía */}
-        <div className="grid grid-cols-2 gap-3 mb-3">
-          <div className="bg-card rounded-2xl p-4">
-            <div className="flex items-center gap-1.5 mb-2">
-              <FontAwesomeIcon icon={faClock} className="w-3 h-3 text-gray-500" />
-              <p className="text-[11px] font-bold uppercase tracking-widest text-gray-500">Esta semana</p>
-            </div>
-            <p className="text-lg font-extrabold mb-1.5">
-              {resumen.usoSemanal.usadas}
-              <span className="text-gray-500 text-sm font-semibold"> / {resumen.usoSemanal.limite}</span>
-            </p>
-            <div className="h-1.5 w-full bg-page rounded-full overflow-hidden mb-1">
-              <div
-                className={`h-full rounded-full ${semanaCompleta ? 'bg-danger' : 'bg-accent'}`}
-                style={{ width: `${ocupacionSemanal * 100}%` }}
-              />
-            </div>
-            <p className="text-[11px] text-gray-500">{ETIQUETA_PLAN[resumen.weeklyPlan]}</p>
+            <motion.div variants={fadeUpItem} whileHover={hoverLift} className="bg-card rounded-2xl p-4">
+              <div className="flex items-center gap-1.5 mb-2">
+                <FontAwesomeIcon icon={faCreditCard} className="w-3 h-3 text-gray-500" />
+                <p className="text-[11px] font-bold uppercase tracking-widest text-gray-500">Pagos</p>
+              </div>
+              <span
+                className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full mb-1.5 ${estiloTono[estadoPago.tono]}`}
+              >
+                <FontAwesomeIcon
+                  icon={estadoPago.tono === 'ok' ? faCircleCheck : faTriangleExclamation}
+                  className="w-2.5 h-2.5"
+                />
+                {estadoPago.texto}
+              </span>
+              <p className="text-[11px] text-gray-500 leading-snug">{estadoPago.detalle}</p>
+            </motion.div>
           </div>
 
-          <div className="bg-card rounded-2xl p-4">
-            <div className="flex items-center gap-1.5 mb-2">
-              <FontAwesomeIcon icon={faCreditCard} className="w-3 h-3 text-gray-500" />
-              <p className="text-[11px] font-bold uppercase tracking-widest text-gray-500">Pagos</p>
-            </div>
-            <span
-              className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full mb-1.5 ${estiloTono[estadoPago.tono]}`}
-            >
-              <FontAwesomeIcon
-                icon={estadoPago.tono === 'ok' ? faCircleCheck : faTriangleExclamation}
-                className="w-2.5 h-2.5"
-              />
-              {estadoPago.texto}
-            </span>
-            <p className="text-[11px] text-gray-500 leading-snug">{estadoPago.detalle}</p>
-          </div>
+          {/* Accesos rápidos */}
+          <motion.div variants={fadeUpItem} className="flex gap-3 lg:flex-col">
+            <motion.div whileHover={hoverLift} whileTap={tapScale} className="flex-1">
+              <Link
+                href="/mis-clases"
+                className="block bg-gradient-accent text-page text-sm font-bold text-center py-2.5 rounded-xl shadow-glow"
+              >
+                Reservar clase
+              </Link>
+            </motion.div>
+            <motion.div whileHover={hoverLift} whileTap={tapScale} className="flex-1">
+              <Link
+                href="/perfil"
+                className="block bg-white/5 hover:bg-white/10 transition-colors text-gray-200 text-sm font-semibold text-center py-2.5 rounded-xl"
+              >
+                Mi perfil
+              </Link>
+            </motion.div>
+          </motion.div>
         </div>
-
-        {/* Accesos rápidos */}
-        <div className="flex gap-3">
-          <Link
-            href="/mis-clases"
-            className="flex-1 bg-accent text-page text-sm font-bold text-center py-2.5 rounded-xl hover:brightness-95"
-          >
-            Reservar clase
-          </Link>
-          <Link
-            href="/perfil"
-            className="flex-1 bg-white/5 text-gray-200 text-sm font-semibold text-center py-2.5 rounded-xl hover:bg-white/10"
-          >
-            Mi perfil
-          </Link>
-        </div>
-      </div>
+      </motion.div>
     </div>
   );
 }

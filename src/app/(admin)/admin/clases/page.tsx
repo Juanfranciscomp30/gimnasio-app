@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faRepeat, faPlus, faMinus } from '@fortawesome/free-solid-svg-icons';
 import clsx from 'clsx';
+import { motion, AnimatePresence } from 'framer-motion';
+import { staggerContainer, fadeUpItem, sheetBackdrop, sheetPanel, hoverLift, tapScale } from '@/lib/motion';
 
 type ClaseResumen = {
   id: string;
@@ -254,26 +256,31 @@ export default function ClasesAdminPage() {
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   return (
-    <div className="min-h-screen bg-page p-8">
-      <div className="max-w-2xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold text-white">Clases</h1>
-          <button
+    <div className="min-h-screen bg-page bg-gradient-hero bg-no-repeat p-4 sm:p-8">
+      <motion.div variants={staggerContainer} initial="hidden" animate="show" className="max-w-2xl mx-auto">
+        <motion.div variants={fadeUpItem} className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">Clases</h1>
+          <motion.button
+            whileHover={hoverLift}
+            whileTap={tapScale}
             onClick={() => setMostrarForm((v) => !v)}
             className={clsx(
               'flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-xl transition-colors',
-              mostrarForm ? 'bg-white/5 text-gray-300 hover:bg-white/10' : 'bg-accent text-page hover:brightness-95'
+              mostrarForm ? 'bg-white/5 text-gray-300 hover:bg-white/10' : 'bg-gradient-accent text-page shadow-glow'
             )}
           >
             <FontAwesomeIcon icon={mostrarForm ? faMinus : faPlus} className="w-3 h-3" />
             {mostrarForm ? 'Cerrar' : 'Nueva clase'}
-          </button>
-        </div>
+          </motion.button>
+        </motion.div>
 
         {mostrarForm && (
-          <form
+          <motion.form
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
             onSubmit={handleCrearClase}
-            className="bg-card border border-white/5 p-6 rounded-2xl shadow-sm mb-8 space-y-4"
+            className="bg-card border border-white/5 p-6 rounded-2xl shadow-sm mb-8 space-y-4 overflow-hidden"
           >
             <div className="flex items-center justify-between">
               <h2 className="font-semibold text-white">Crear nueva clase</h2>
@@ -416,39 +423,41 @@ export default function ClasesAdminPage() {
             >
               {cargando ? 'Creando...' : esRecurrente ? 'Crear clases recurrentes' : 'Crear clase'}
             </button>
-          </form>
+          </motion.form>
         )}
 
         {/* Cabecera del mes */}
-        <div className="flex items-center justify-between mb-2">
-          <button
+        <motion.div variants={fadeUpItem} className="flex items-center justify-between mb-2">
+          <motion.button
+            whileTap={tapScale}
             onClick={irMesAnterior}
             className="w-8 h-8 rounded-full bg-card flex items-center justify-center text-sm hover:bg-cardhover text-gray-300"
             aria-label="Mes anterior"
           >
             ‹
-          </button>
+          </motion.button>
           <h2 className="font-bold text-sm capitalize text-white">
             {mesReferencia.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
           </h2>
-          <button
+          <motion.button
+            whileTap={tapScale}
             onClick={irMesSiguiente}
             className="w-8 h-8 rounded-full bg-card flex items-center justify-center text-sm hover:bg-cardhover text-gray-300"
             aria-label="Mes siguiente"
           >
             ›
-          </button>
-        </div>
+          </motion.button>
+        </motion.div>
 
-        <div className="grid grid-cols-7 gap-1 mb-1">
+        <motion.div variants={fadeUpItem} className="grid grid-cols-7 gap-1 mb-1">
           {NOMBRES_DIA.map((n) => (
             <div key={n} className="text-center text-[10px] text-gray-500 font-semibold py-0.5">
               {n}
             </div>
           ))}
-        </div>
+        </motion.div>
 
-        <div className="grid grid-cols-7 gap-1 mb-6 justify-items-center">
+        <motion.div variants={fadeUpItem} className="grid grid-cols-7 gap-1 mb-6 justify-items-center">
           {diasCuadricula.map((dia) => {
             const perteneceAlMes = dia.getMonth() === mesReferencia.getMonth();
             const esHoy = mismodia(dia, hoy);
@@ -456,18 +465,29 @@ export default function ClasesAdminPage() {
             const tieneClase = tieneClaseEseDia(dia);
 
             return (
-              <button
+              <motion.button
                 key={dia.toISOString()}
                 disabled={!perteneceAlMes}
                 onClick={() => setDiaSeleccionado(dia)}
+                whileTap={!perteneceAlMes ? undefined : tapScale}
                 className={clsx(
-                  'relative w-9 h-9 rounded-lg flex flex-col items-center justify-center text-xs font-semibold transition',
-                  !perteneceAlMes ? 'text-gray-700 cursor-not-allowed' : 'text-gray-200 hover:bg-cardhover',
-                  seleccionado && perteneceAlMes ? 'bg-accent text-page' : '',
+                  'relative w-9 h-9 rounded-lg flex flex-col items-center justify-center text-xs font-semibold transition-colors',
+                  !perteneceAlMes
+                    ? 'text-gray-700 cursor-not-allowed'
+                    : seleccionado
+                    ? 'text-page'
+                    : 'text-gray-200 hover:bg-cardhover',
                   esHoy && !seleccionado ? 'ring-1 ring-accent/60' : ''
                 )}
               >
-                {dia.getDate()}
+                {seleccionado && perteneceAlMes && (
+                  <motion.span
+                    layoutId="admin-dia-seleccionado-pill"
+                    className="absolute inset-0 bg-accent rounded-lg"
+                    transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+                  />
+                )}
+                <span className="relative">{dia.getDate()}</span>
                 {tieneClase && (
                   <span
                     className={clsx(
@@ -476,35 +496,40 @@ export default function ClasesAdminPage() {
                     )}
                   />
                 )}
-              </button>
+              </motion.button>
             );
           })}
-        </div>
+        </motion.div>
 
         {/* Clases del día elegido */}
-        <h3 className="text-sm font-bold text-gray-300 mb-3 capitalize">
+        <motion.h3 variants={fadeUpItem} className="text-sm font-bold text-gray-300 mb-3 capitalize">
           {diaSeleccionado.toLocaleDateString('es-ES', {
             weekday: 'long',
             day: 'numeric',
             month: 'long',
           })}
-        </h3>
+        </motion.h3>
 
         {clasesDelDia.length === 0 && (
           <p className="text-gray-500 text-sm py-6 text-center">No hay clases programadas este día.</p>
         )}
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <motion.div variants={staggerContainer} className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {clasesDelDia.map((clase) => {
             const ocupacion = clase._count.bookings / clase.capacity;
             const completa = clase._count.bookings >= clase.capacity;
             return (
-              <button
+              <motion.button
                 key={clase.id}
+                variants={fadeUpItem}
+                whileHover={clase.cancelled ? undefined : hoverLift}
+                whileTap={tapScale}
                 onClick={() => abrirModal(clase.id)}
                 className={clsx(
-                  'text-left rounded-2xl p-4 border transition hover:brightness-95',
-                  clase.cancelled ? 'bg-white/[0.02] border-white/5 opacity-60' : 'bg-card border-transparent'
+                  'text-left rounded-2xl p-4 border transition-shadow',
+                  clase.cancelled
+                    ? 'bg-white/[0.02] border-white/5 opacity-60'
+                    : 'bg-card border-transparent hover:shadow-glow'
                 )}
               >
                 <div className="flex items-center justify-between mb-2">
@@ -520,9 +545,11 @@ export default function ClasesAdminPage() {
                 {!clase.cancelled && (
                   <>
                     <div className="h-1.5 w-full bg-page rounded-full overflow-hidden mb-1">
-                      <div
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${Math.min(ocupacion * 100, 100)}%` }}
+                        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
                         className={clsx('h-full rounded-full', completa ? 'bg-danger' : 'bg-accent')}
-                        style={{ width: `${Math.min(ocupacion * 100, 100)}%` }}
                       />
                     </div>
                     <p className="text-[11px] text-gray-400">
@@ -531,16 +558,30 @@ export default function ClasesAdminPage() {
                     </p>
                   </>
                 )}
-              </button>
+              </motion.button>
             );
           })}
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
 
-      {detalle && (
+      <AnimatePresence>
+        {detalle && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          <div className="absolute inset-0 bg-black/60" onClick={cerrarModal} />
-          <div className="relative bg-card w-full sm:max-w-md sm:rounded-3xl rounded-t-3xl p-5 max-h-[85vh] overflow-y-auto">
+          <motion.div
+            variants={sheetBackdrop}
+            initial="hidden"
+            animate="show"
+            exit="exit"
+            className="absolute inset-0 bg-black/60"
+            onClick={cerrarModal}
+          />
+          <motion.div
+            variants={sheetPanel}
+            initial="hidden"
+            animate="show"
+            exit="exit"
+            className="relative bg-card w-full sm:max-w-md sm:rounded-3xl rounded-t-3xl p-5 max-h-[85vh] overflow-y-auto"
+          >
             <div className="flex items-start justify-between mb-4">
               <div>
                 <p className="text-accent text-[11px] font-semibold uppercase tracking-widest mb-1">
@@ -684,9 +725,10 @@ export default function ClasesAdminPage() {
                 )}
               </>
             )}
-          </div>
+          </motion.div>
         </div>
-      )}
+        )}
+      </AnimatePresence>
     </div>
   );
 }

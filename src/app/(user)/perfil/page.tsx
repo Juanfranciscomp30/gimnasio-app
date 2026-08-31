@@ -1,6 +1,18 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import {
+  faCamera,
+  faUser,
+  faEnvelope,
+  faTag,
+  faTriangleExclamation,
+  faCircleCheck,
+} from '@fortawesome/free-solid-svg-icons';
+import { staggerContainer, fadeUpItem, hoverLift, tapScale } from '@/lib/motion';
+import Skeleton from '@/components/ui/Skeleton';
 
 type Perfil = {
   id: string;
@@ -103,7 +115,16 @@ export default function PerfilPage() {
   }
 
   if (cargando) {
-    return <div className="min-h-screen bg-page" />;
+    return (
+      <div className="min-h-screen bg-page">
+        <div className="max-w-sm sm:max-w-xl mx-auto px-5 pt-6 space-y-3">
+          <Skeleton className="h-3 w-20" />
+          <Skeleton className="h-7 w-32 mb-2" />
+          <Skeleton className="h-40" />
+          <Skeleton className="h-32" />
+        </div>
+      </div>
+    );
   }
 
   if (!perfil) {
@@ -117,40 +138,74 @@ export default function PerfilPage() {
   const inicial = perfil.name.charAt(0).toUpperCase();
 
   return (
-    <div className="min-h-screen bg-page pb-24">
-      <div className="max-w-sm mx-auto px-5 pt-6">
-        <p className="text-accent text-[11px] font-semibold tracking-widest uppercase mb-1">
+    <div className="min-h-screen bg-page bg-gradient-hero bg-no-repeat pb-24">
+      <motion.div
+        variants={staggerContainer}
+        initial="hidden"
+        animate="show"
+        className="max-w-sm sm:max-w-xl mx-auto px-5 pt-6"
+      >
+        <motion.p variants={fadeUpItem} className="text-accent text-[11px] font-semibold tracking-widest uppercase mb-1">
           Tu cuenta
-        </p>
-        <h1 className="text-xl font-extrabold mb-6">Perfil</h1>
+        </motion.p>
+        <motion.h1 variants={fadeUpItem} className="text-2xl font-extrabold mb-6 tracking-tight">
+          Perfil
+        </motion.h1>
 
-        {error && (
-          <div className="mb-4 bg-dangersoft border border-danger/30 text-danger text-sm px-4 py-3 rounded-xl">
-            {error}
-          </div>
-        )}
-        {mensaje && (
-          <div className="mb-4 bg-accentsoft border border-accent/30 text-accent text-sm px-4 py-3 rounded-xl">
-            {mensaje}
-          </div>
-        )}
+        <AnimatePresence>
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: -8, height: 0 }}
+              animate={{ opacity: 1, y: 0, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mb-4 bg-dangersoft border border-danger/30 text-danger text-sm px-4 py-3 rounded-xl flex items-start gap-2 overflow-hidden"
+            >
+              <FontAwesomeIcon icon={faTriangleExclamation} className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+              <span>{error}</span>
+            </motion.div>
+          )}
+          {mensaje && (
+            <motion.div
+              initial={{ opacity: 0, y: -8, height: 0 }}
+              animate={{ opacity: 1, y: 0, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mb-4 bg-accentsoft border border-accent/30 text-accent text-sm px-4 py-3 rounded-xl flex items-start gap-2 overflow-hidden"
+            >
+              <FontAwesomeIcon icon={faCircleCheck} className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+              <span>{mensaje}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Avatar */}
-        <div className="bg-card rounded-2xl p-6 flex flex-col items-center gap-3 mb-4">
-          <div className="relative w-20 h-20">
+        <motion.div
+          variants={fadeUpItem}
+          className="bg-card bg-gradient-card-glow rounded-2xl p-6 flex flex-col items-center gap-3 mb-4"
+        >
+          <motion.button
+            type="button"
+            whileHover={{ scale: 1.04 }}
+            whileTap={tapScale}
+            onClick={() => inputFotoRef.current?.click()}
+            className="relative w-24 h-24 rounded-full group"
+            aria-label="Cambiar foto de perfil"
+          >
             {perfil.profileImageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={perfil.profileImageUrl}
                 alt="Foto de perfil"
-                className="w-20 h-20 rounded-full object-cover"
+                className="w-24 h-24 rounded-full object-cover ring-4 ring-accent/20"
               />
             ) : (
-              <div className="w-20 h-20 rounded-full bg-accent/15 text-accent flex items-center justify-center text-2xl font-bold">
+              <div className="w-24 h-24 rounded-full bg-accentsoft text-accent flex items-center justify-center text-3xl font-bold ring-4 ring-accent/10">
                 {inicial}
               </div>
             )}
-          </div>
+            <span className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-accent text-page flex items-center justify-center shadow-glow group-hover:brightness-95">
+              <FontAwesomeIcon icon={faCamera} className="w-3.5 h-3.5" />
+            </span>
+          </motion.button>
 
           <input
             ref={inputFotoRef}
@@ -161,13 +216,9 @@ export default function PerfilPage() {
           />
 
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => inputFotoRef.current?.click()}
-              disabled={subiendoFoto}
-              className="text-xs font-semibold text-accent hover:underline disabled:opacity-50"
-            >
+            <span className="text-xs font-semibold text-accent">
               {subiendoFoto ? 'Subiendo...' : perfil.profileImageUrl ? 'Cambiar foto' : 'Añadir foto'}
-            </button>
+            </span>
             {perfil.profileImageUrl && (
               <button
                 onClick={quitarFoto}
@@ -178,63 +229,94 @@ export default function PerfilPage() {
               </button>
             )}
           </div>
-        </div>
+        </motion.div>
 
         {/* Datos */}
-        <div className="bg-card rounded-2xl p-5 space-y-3 mb-4">
-          <div>
-            <p className="text-[11px] text-gray-500 uppercase tracking-wide">Nombre</p>
-            <p className="text-sm font-semibold">{perfil.name}</p>
+        <motion.div variants={fadeUpItem} className="bg-card rounded-2xl p-5 space-y-4 mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center shrink-0">
+              <FontAwesomeIcon icon={faUser} className="w-3.5 h-3.5 text-gray-500" />
+            </div>
+            <div>
+              <p className="text-[11px] text-gray-500 uppercase tracking-wide">Nombre</p>
+              <p className="text-sm font-semibold">{perfil.name}</p>
+            </div>
           </div>
-          <div>
-            <p className="text-[11px] text-gray-500 uppercase tracking-wide">Email</p>
-            <p className="text-sm font-semibold">{perfil.email}</p>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center shrink-0">
+              <FontAwesomeIcon icon={faEnvelope} className="w-3.5 h-3.5 text-gray-500" />
+            </div>
+            <div>
+              <p className="text-[11px] text-gray-500 uppercase tracking-wide">Email</p>
+              <p className="text-sm font-semibold">{perfil.email}</p>
+            </div>
           </div>
-          <div>
-            <p className="text-[11px] text-gray-500 uppercase tracking-wide">Tarifa</p>
-            <p className="text-sm font-semibold">{ETIQUETA_PLAN[perfil.weeklyPlan]}</p>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-accentsoft flex items-center justify-center shrink-0">
+              <FontAwesomeIcon icon={faTag} className="w-3.5 h-3.5 text-accent" />
+            </div>
+            <div>
+              <p className="text-[11px] text-gray-500 uppercase tracking-wide">Tarifa</p>
+              <p className="text-sm font-semibold">{ETIQUETA_PLAN[perfil.weeklyPlan]}</p>
+            </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Baja */}
-        <div className="bg-card rounded-2xl p-5">
+        <motion.div variants={fadeUpItem} className="bg-card rounded-2xl p-5">
           <h2 className="text-sm font-bold mb-1">Baja del gimnasio</h2>
 
-          {perfil.cancellationRequested ? (
-            <>
-              <p className="text-xs text-gray-400 mb-3">
-                Solicitaste la baja
-                {perfil.cancellationRequestedAt &&
-                  ` el ${new Date(perfil.cancellationRequestedAt).toLocaleDateString('es-ES')}`}
-                . No puedes reservar clases nuevas mientras esté pendiente de revisión; tus
-                reservas ya confirmadas se mantienen.
-              </p>
-              <button
-                onClick={() => cambiarSolicitudBaja(false)}
-                disabled={procesandoBaja}
-                className="w-full bg-white/5 text-gray-200 text-sm font-semibold py-2 rounded-xl hover:bg-white/10 disabled:opacity-50"
+          <AnimatePresence mode="wait">
+            {perfil.cancellationRequested ? (
+              <motion.div
+                key="con-baja"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
               >
-                {procesandoBaja ? 'Procesando...' : 'Retirar solicitud'}
-              </button>
-            </>
-          ) : (
-            <>
-              <p className="text-xs text-gray-400 mb-3">
-                Si ya no quieres seguir en el gimnasio, puedes solicitar la baja. En cuanto la
-                pidas dejarás de poder reservar clases nuevas hasta que el gimnasio la
-                confirme.
-              </p>
-              <button
-                onClick={() => cambiarSolicitudBaja(true)}
-                disabled={procesandoBaja}
-                className="w-full bg-dangersoft text-danger text-sm font-semibold py-2 rounded-xl hover:bg-danger/20 disabled:opacity-50"
+                <p className="text-xs text-gray-400 mb-3">
+                  Solicitaste la baja
+                  {perfil.cancellationRequestedAt &&
+                    ` el ${new Date(perfil.cancellationRequestedAt).toLocaleDateString('es-ES')}`}
+                  . No puedes reservar clases nuevas mientras esté pendiente de revisión; tus
+                  reservas ya confirmadas se mantienen.
+                </p>
+                <motion.button
+                  whileHover={hoverLift}
+                  whileTap={tapScale}
+                  onClick={() => cambiarSolicitudBaja(false)}
+                  disabled={procesandoBaja}
+                  className="w-full bg-white/5 text-gray-200 text-sm font-semibold py-2.5 rounded-xl hover:bg-white/10 disabled:opacity-50"
+                >
+                  {procesandoBaja ? 'Procesando...' : 'Retirar solicitud'}
+                </motion.button>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="sin-baja"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
               >
-                {procesandoBaja ? 'Procesando...' : 'Solicitar baja'}
-              </button>
-            </>
-          )}
-        </div>
-      </div>
+                <p className="text-xs text-gray-400 mb-3">
+                  Si ya no quieres seguir en el gimnasio, puedes solicitar la baja. En cuanto la
+                  pidas dejarás de poder reservar clases nuevas hasta que el gimnasio la
+                  confirme.
+                </p>
+                <motion.button
+                  whileHover={hoverLift}
+                  whileTap={tapScale}
+                  onClick={() => cambiarSolicitudBaja(true)}
+                  disabled={procesandoBaja}
+                  className="w-full bg-dangersoft text-danger text-sm font-semibold py-2.5 rounded-xl hover:bg-danger/20 disabled:opacity-50"
+                >
+                  {procesandoBaja ? 'Procesando...' : 'Solicitar baja'}
+                </motion.button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
+      </motion.div>
     </div>
   );
 }
