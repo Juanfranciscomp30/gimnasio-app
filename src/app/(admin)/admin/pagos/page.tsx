@@ -1,6 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { staggerContainer, fadeUpItem, hoverLift, tapScale } from '@/lib/motion';
+import AnimatedNumber from '@/components/ui/AnimatedNumber';
 
 type Usuario = {
   id: string;
@@ -160,39 +163,42 @@ export default function PagosAdminPage() {
   );
 
   return (
-    <div className="p-8 max-w-3xl mx-auto">
-      <h1 className="text-2xl font-extrabold mb-6">Pagos</h1>
+    <div className="min-h-screen bg-page bg-gradient-hero bg-no-repeat p-4 sm:p-8">
+    <motion.div variants={staggerContainer} initial="hidden" animate="show" className="max-w-3xl mx-auto">
+      <motion.h1 variants={fadeUpItem} className="text-2xl sm:text-3xl font-extrabold mb-6 tracking-tight">
+        Pagos
+      </motion.h1>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        <div className="bg-card rounded-2xl p-4">
+        <motion.div variants={fadeUpItem} whileHover={hoverLift} className="bg-card rounded-2xl p-4">
           <p className="text-[11px] font-bold uppercase tracking-widest text-gray-500 mb-1">
             Ingresos este mes
           </p>
-          <p className="text-2xl font-extrabold">{ingresosMes}€</p>
-        </div>
-        <div className="bg-card rounded-2xl p-4">
+          <p className="text-2xl font-extrabold tabular-nums"><AnimatedNumber value={ingresosMes} />€</p>
+        </motion.div>
+        <motion.div variants={fadeUpItem} whileHover={hoverLift} className="bg-card rounded-2xl p-4">
           <p className="text-[11px] font-bold uppercase tracking-widest text-gray-500 mb-1">
             Gastos este mes
           </p>
-          <p className="text-2xl font-extrabold text-danger">{gastosMes}€</p>
-        </div>
-        <div className="bg-card rounded-2xl p-4">
+          <p className="text-2xl font-extrabold text-danger tabular-nums"><AnimatedNumber value={gastosMes} />€</p>
+        </motion.div>
+        <motion.div variants={fadeUpItem} whileHover={hoverLift} className="bg-card rounded-2xl p-4">
           <p className="text-[11px] font-bold uppercase tracking-widest text-gray-500 mb-1">
             Beneficio neto
           </p>
-          <p className={`text-2xl font-extrabold ${beneficioMes >= 0 ? 'text-accent' : 'text-danger'}`}>
-            {beneficioMes}€
+          <p className={`text-2xl font-extrabold tabular-nums ${beneficioMes >= 0 ? 'text-accent' : 'text-danger'}`}>
+            <AnimatedNumber value={beneficioMes} />€
           </p>
-        </div>
-        <div className="bg-card rounded-2xl p-4">
+        </motion.div>
+        <motion.div variants={fadeUpItem} whileHover={hoverLift} className="bg-card rounded-2xl p-4">
           <p className="text-[11px] font-bold uppercase tracking-widest text-gray-500 mb-1">
             Pagos registrados
           </p>
-          <p className="text-2xl font-extrabold">{pagos.length}</p>
-        </div>
+          <p className="text-2xl font-extrabold tabular-nums"><AnimatedNumber value={pagos.length} /></p>
+        </motion.div>
       </div>
 
-      <div className="space-y-2">
+      <motion.div variants={staggerContainer} className="space-y-2">
         {usuarios.map((u) => {
           const ultimoPago = ultimoPagoDe(u.id);
           const validUntilDate = ultimoPago ? new Date(ultimoPago.validUntil) : null;
@@ -201,8 +207,10 @@ export default function PagosAdminPage() {
           const nuncaPago = !ultimoPago;
 
           return (
-            <div
+            <motion.div
               key={u.id}
+              variants={fadeUpItem}
+              whileHover={hoverLift}
               className="bg-card p-4 rounded-2xl flex flex-wrap items-center justify-between gap-3"
             >
               <div>
@@ -241,30 +249,32 @@ export default function PagosAdminPage() {
                 </p>
               </div>
 
-              <button
+              <motion.button
+                whileHover={hoverLift}
+                whileTap={tapScale}
                 onClick={() => registrarPago(u.id)}
                 disabled={registrando === u.id}
-                className="bg-accent text-page text-xs font-bold px-4 py-2 rounded-xl hover:brightness-95 disabled:opacity-50"
+                className="bg-gradient-accent text-page text-xs font-bold px-4 py-2 rounded-xl shadow-glow disabled:opacity-50"
               >
                 {registrando === u.id
                   ? 'Registrando...'
                   : `Registrar pago (${PRECIO_POR_PLAN[u.weeklyPlan]}€)`}
-              </button>
-            </div>
+              </motion.button>
+            </motion.div>
           );
         })}
-      </div>
+      </motion.div>
 
-      <div className="flex items-center justify-between mt-10 mb-3">
+      <motion.div variants={fadeUpItem} className="flex items-center justify-between mt-10 mb-3">
         <h2 className="font-bold text-sm text-gray-300">Historial de pagos</h2>
         <input
           type="text"
           value={filtroHistorial}
           onChange={(e) => setFiltroHistorial(e.target.value)}
           placeholder="Filtrar por usuario..."
-          className="bg-card border border-white/10 rounded-lg px-3 py-1.5 text-xs placeholder:text-gray-600 focus:outline-none focus:border-accent/60"
+          className="bg-card border border-white/10 rounded-lg px-3 py-1.5 text-xs placeholder:text-gray-600 focus:outline-none focus:border-accent/60 focus:ring-2 focus:ring-accent/20 transition"
         />
-      </div>
+      </motion.div>
       <div className="space-y-1">
         {pagos.length === 0 && (
           <p className="text-gray-500 text-sm">Todavía no hay pagos registrados.</p>
@@ -367,6 +377,7 @@ export default function PagosAdminPage() {
           </div>
         ))}
       </div>
+    </motion.div>
     </div>
   );
 }
