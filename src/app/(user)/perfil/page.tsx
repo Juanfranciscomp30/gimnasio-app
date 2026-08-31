@@ -57,6 +57,9 @@ export default function PerfilPage() {
       return;
     }
     setPerfil((prev) => (prev ? { ...prev, profileImageUrl: data.profileImageUrl } : prev));
+    window.dispatchEvent(
+      new CustomEvent('avatar-actualizado', { detail: { profileImageUrl: data.profileImageUrl } })
+    );
   }
 
   async function quitarFoto() {
@@ -70,6 +73,9 @@ export default function PerfilPage() {
       return;
     }
     setPerfil((prev) => (prev ? { ...prev, profileImageUrl: data.profileImageUrl } : prev));
+    window.dispatchEvent(
+      new CustomEvent('avatar-actualizado', { detail: { profileImageUrl: data.profileImageUrl } })
+    );
   }
 
   async function cambiarSolicitudBaja(solicitar: boolean) {

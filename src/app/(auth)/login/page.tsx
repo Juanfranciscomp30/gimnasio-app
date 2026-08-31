@@ -35,7 +35,7 @@ export default function LoginPage() {
     if ((session?.user as any)?.role === 'ADMIN') {
       router.push('/admin');
     } else {
-      router.push('/mis-clases');
+      router.push('/inicio');
     }
     router.refresh();
   }

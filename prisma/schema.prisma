@@ -27,6 +27,7 @@ enum BookingStatus {
   CONFIRMED
   CANCELLED_ON_TIME   // Cancelada con >= 3h de antelación -> libera hueco y NO consume el día
   CANCELLED_LATE      // Cancelada con < 3h de antelación -> libera hueco pero SÍ consume el día (lo pierde)
+  WAITLISTED          // Clase completa: en lista de espera, no consume el día hasta confirmarse
 }
 
 model User {
