@@ -11,7 +11,8 @@ export default function UserNavbar() {
   const { data: session } = useSession();
   const pathname = usePathname();
   const inicial = session?.user?.name?.charAt(0).toUpperCase() ?? 'U';
-  const active = pathname === '/mis-clases';
+  const activeMisClases = pathname === '/mis-clases';
+  const activePerfil = pathname === '/perfil';
 
   return (
     <nav className="bg-[#0F1115] border-b border-white/5 px-6 py-3 flex items-center justify-between">
@@ -21,12 +22,23 @@ export default function UserNavbar() {
           href="/mis-clases"
           className={clsx(
             'text-sm px-3 py-1.5 rounded-lg transition-colors',
-            active
+            activeMisClases
               ? 'bg-[#C6F135]/10 text-[#C6F135] font-medium'
               : 'text-gray-400 hover:text-white hover:bg-white/5'
           )}
         >
           Mis clases
+        </Link>
+        <Link
+          href="/perfil"
+          className={clsx(
+            'text-sm px-3 py-1.5 rounded-lg transition-colors',
+            activePerfil
+              ? 'bg-[#C6F135]/10 text-[#C6F135] font-medium'
+              : 'text-gray-400 hover:text-white hover:bg-white/5'
+          )}
+        >
+          Perfil
         </Link>
       </div>
 

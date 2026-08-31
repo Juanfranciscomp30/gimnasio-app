@@ -80,6 +80,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
     }
 
+    // Si ha solicitado la baja, no puede apuntarse a clases nuevas (pero
+    // conserva las reservas que ya tuviera hechas hasta que el admin la confirme)
+    if (usuario.cancellationRequested) {
+      return NextResponse.json(
+        { error: 'Has solicitado la baja, así que no puedes reservar nuevas clases.' },
+        { status: 403 }
+      );
+    }
+
     const inicio = inicioDeSemana(clase.date);
     const fin = finDeSemana(clase.date);
 

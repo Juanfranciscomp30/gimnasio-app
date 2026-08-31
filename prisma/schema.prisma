@@ -33,12 +33,16 @@ model User {
   id           String     @id @default(cuid())
   name         String
   email        String     @unique
-  passwordHash String?    // null si el admin lo crea manualmente sin acceso aún
+  passwordHash String?
   role         Role       @default(USER)
   weeklyPlan   WeeklyPlan @default(ONE_DAY)
-  createdByAdmin Boolean  @default(false) // true si fue dado de alta manualmente por el admin
+  createdByAdmin Boolean  @default(false)
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
+
+  profileImageUrl          String?
+  cancellationRequested    Boolean   @default(false)
+  cancellationRequestedAt  DateTime?
 
   bookings     Booking[]
   payments     Payment[]

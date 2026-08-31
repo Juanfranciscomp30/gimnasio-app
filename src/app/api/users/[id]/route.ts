@@ -7,6 +7,11 @@ import { prisma } from '@/lib/prisma';
 const actualizarUsuarioSchema = z.object({
   weeklyPlan: z.enum(['ONE_DAY', 'TWO_DAYS', 'THREE_DAYS']).optional(),
   role: z.enum(['ADMIN', 'USER']).optional(),
+  // Acciones sobre una solicitud de baja pendiente (ver /perfil):
+  // - confirmarBaja: el admin la procesa de verdad -> revoca el acceso
+  //   (passwordHash a null, igual que un usuario sin activar) y limpia la solicitud
+  // - rechazarBaja: descarta la solicitud sin tocar el acceso del usuario
+  accion: z.enum(['confirmarBaja', 'rechazarBaja']).optional(),
 });
 
 export async function PATCH(
@@ -20,11 +25,21 @@ export async function PATCH(
 
   try {
     const body = await request.json();
-    const datos = actualizarUsuarioSchema.parse(body);
+    const { accion, ...datos } = actualizarUsuarioSchema.parse(body);
+
+    const dataActualizar: Record<string, unknown> = { ...datos };
+    if (accion === 'confirmarBaja') {
+      dataActualizar.passwordHash = null;
+      dataActualizar.cancellationRequested = false;
+      dataActualizar.cancellationRequestedAt = null;
+    } else if (accion === 'rechazarBaja') {
+      dataActualizar.cancellationRequested = false;
+      dataActualizar.cancellationRequestedAt = null;
+    }
 
     const usuarioActualizado = await prisma.user.update({
       where: { id: params.id },
-      data: datos,
+      data: dataActualizar,
     });
 
     return NextResponse.json(usuarioActualizado);
