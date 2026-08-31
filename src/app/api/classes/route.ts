@@ -28,9 +28,16 @@ const claseRecurrenteSchema = z
 
 const crearClaseSchema = z.union([claseRecurrenteSchema, claseUnicaSchema]);
 
-// Cualquiera logueado puede LEER las clases.
+// Cualquiera logueado puede LEER las clases (antes no comprobaba sesión,
+// aunque el comentario original ya decía que debía ser así).
 // ?when=upcoming -> solo futuras | ?when=past -> solo pasadas | sin parámetro -> todas
 export async function GET(request: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session) {
+    return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  }
+  const userId = (session.user as any).id;
+
   const { searchParams } = new URL(request.url);
   const when = searchParams.get('when');
 
@@ -42,13 +49,49 @@ export async function GET(request: Request) {
     where: filtroFecha ? { date: filtroFecha } : undefined,
     orderBy: { date: when === 'past' ? 'desc' : 'asc' },
     include: {
-      _count: {
-        select: { bookings: { where: { status: 'CONFIRMED' } } },
+      bookings: {
+        where: { status: { in: ['CONFIRMED', 'WAITLISTED'] } },
+        select: {
+          userId: true,
+          status: true,
+          user: { select: { name: true, profileImageUrl: true } },
+        },
+        orderBy: { createdAt: 'asc' },
       },
     },
   });
 
-  return NextResponse.json(clases);
+  // Solo mandamos al cliente lo mínimo: cuántos confirmados hay, el
+  // nombre de pila y foto de cada uno (para el pop-up de participantes de
+  // mis-clases), cuánta gente hay en espera, y mi propia posición si estoy
+  // en ella. Nada de emails ni ids de otros usuarios.
+  const resultado = clases.map((clase) => {
+    const confirmados = clase.bookings.filter((b) => b.status === 'CONFIRMED');
+    const enEspera = clase.bookings.filter((b) => b.status === 'WAITLISTED');
+    const miPosicion = enEspera.findIndex((b) => b.userId === userId);
+
+    const asistentes = confirmados
+      .map((b) => ({
+        esTu: b.userId === userId,
+        nombre: b.user.name.split(' ')[0],
+        fotoUrl: b.user.profileImageUrl,
+      }))
+      // A ti mismo te ponemos el primero de la lista
+      .sort((a, b) => Number(b.esTu) - Number(a.esTu));
+
+    return {
+      id: clase.id,
+      date: clase.date,
+      capacity: clase.capacity,
+      createdAt: clase.createdAt,
+      _count: { bookings: confirmados.length },
+      asistentes,
+      enEspera: enEspera.length,
+      miPosicionEspera: miPosicion >= 0 ? miPosicion + 1 : null,
+    };
+  });
+
+  return NextResponse.json(resultado);
 }
 
 // Solo el ADMIN puede CREAR clases (única o recurrente)

@@ -2,17 +2,26 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
+type Asistente = {
+  esTu: boolean;
+  nombre: string;
+  fotoUrl: string | null;
+};
+
 type Clase = {
   id: string;
   date: string;
   capacity: number;
   _count: { bookings: number };
+  asistentes: Asistente[];
+  enEspera: number;
+  miPosicionEspera: number | null;
 };
 
 type Reserva = {
   id: string;
   classSessionId: string;
-  status: 'CONFIRMED' | 'CANCELLED_ON_TIME' | 'CANCELLED_LATE';
+  status: 'CONFIRMED' | 'CANCELLED_ON_TIME' | 'CANCELLED_LATE' | 'WAITLISTED';
   classSession: { date: string };
 };
 
@@ -58,6 +67,7 @@ export default function MisClasesPage() {
   const [reservas, setReservas] = useState<Reserva[]>([]);
   const [mensaje, setMensaje] = useState('');
   const [procesando, setProcesando] = useState<string | null>(null);
+  const [claseModalId, setClaseModalId] = useState<string | null>(null);
 
   const hoy = useMemo(() => soloFecha(new Date()), []);
   const [mesReferencia, setMesReferencia] = useState<Date>(
@@ -84,6 +94,12 @@ export default function MisClasesPage() {
     );
   }
 
+  function reservaEnEsperaPara(classSessionId: string) {
+    return reservas.find(
+      (r) => r.classSessionId === classSessionId && r.status === 'WAITLISTED'
+    );
+  }
+
   // Para el puntito del calendario: ¿tiene el usuario alguna reserva
   // confirmada cuya clase caiga en este día concreto?
   function tieneReservaEseDia(dia: Date) {
@@ -100,6 +116,22 @@ export default function MisClasesPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ classSessionId }),
     });
+    const data = await res.json();
+    setProcesando(null);
+    if (!res.ok) {
+      setMensaje(data.error);
+      return;
+    }
+    if (data.enListaDeEspera) {
+      setMensaje('Clase completa: te hemos añadido a la lista de espera. Si se libera un hueco, entrarás automáticamente.');
+    }
+    cargarDatos();
+  }
+
+  async function salirDeEspera(bookingId: string) {
+    setMensaje('');
+    setProcesando(bookingId);
+    const res = await fetch(`/api/bookings/${bookingId}`, { method: 'DELETE' });
     const data = await res.json();
     setProcesando(null);
     if (!res.ok) {
@@ -155,6 +187,12 @@ export default function MisClasesPage() {
     { titulo: 'Tarde', desde: 14, hasta: 20 },
     { titulo: 'Noche', desde: 20, hasta: 24 },
   ];
+
+  // Datos derivados de la clase que está abierta en el pop-up (si hay alguna)
+  const claseModal = clases.find((c) => c.id === claseModalId) ?? null;
+  const claseModalMiReserva = claseModal ? reservaConfirmadaPara(claseModal.id) : undefined;
+  const claseModalMiEspera = claseModal ? reservaEnEsperaPara(claseModal.id) : undefined;
+  const claseModalCompleta = claseModal ? claseModal._count.bookings >= claseModal.capacity : false;
 
   return (
     <div className="min-h-screen bg-page pb-24">
@@ -269,14 +307,17 @@ export default function MisClasesPage() {
               <div className="grid grid-cols-2 gap-3">
                 {clasesFranja.map((clase) => {
                   const miReserva = reservaConfirmadaPara(clase.id);
+                  const miEspera = reservaEnEsperaPara(clase.id);
                   const ocupacion = clase._count.bookings / clase.capacity;
                   const completa = clase._count.bookings >= clase.capacity;
                   const plazasLibres = clase.capacity - clase._count.bookings;
 
                   return (
-                    <div
+                    <button
                       key={clase.id}
-                      className={`rounded-2xl p-4 flex flex-col gap-3 border transition
+                      type="button"
+                      onClick={() => setClaseModalId(clase.id)}
+                      className={`text-left w-full rounded-2xl p-4 flex flex-col gap-3 border transition hover:brightness-95
                         ${miReserva ? 'bg-accentsoft border-accent/40' : 'bg-card border-transparent'}`}
                     >
                       <div className="flex items-center justify-between">
@@ -289,6 +330,11 @@ export default function MisClasesPage() {
                         {miReserva && (
                           <span className="text-accent text-[10px] font-bold bg-page/40 px-2 py-0.5 rounded-full">
                             APUNTADO
+                          </span>
+                        )}
+                        {miEspera && (
+                          <span className="text-gray-300 text-[10px] font-bold bg-page/40 px-2 py-0.5 rounded-full">
+                            EN ESPERA
                           </span>
                         )}
                       </div>
@@ -306,31 +352,15 @@ export default function MisClasesPage() {
                           {completa
                             ? 'Completa'
                             : `${plazasLibres} plaza${plazasLibres === 1 ? '' : 's'} libre${plazasLibres === 1 ? '' : 's'}`}
+                          {clase.enEspera > 0 &&
+                            ` · ${clase.enEspera} en espera`}
                         </p>
                       </div>
 
-                      {miReserva ? (
-                        <button
-                          onClick={() => cancelar(miReserva.id)}
-                          disabled={procesando === miReserva.id}
-                          className="w-full bg-dangersoft text-danger text-sm font-semibold py-2 rounded-xl hover:bg-danger/20 disabled:opacity-50"
-                        >
-                          {procesando === miReserva.id ? 'Cancelando...' : 'Cancelar'}
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => apuntarse(clase.id)}
-                          disabled={completa || procesando === clase.id}
-                          className="w-full bg-accent text-page text-sm font-bold py-2 rounded-xl hover:brightness-95 disabled:opacity-30 disabled:cursor-not-allowed"
-                        >
-                          {completa
-                            ? 'Completa'
-                            : procesando === clase.id
-                            ? 'Apuntando...'
-                            : 'Apuntarme'}
-                        </button>
-                      )}
-                    </div>
+                      <span className="text-[11px] text-accent font-semibold">
+                        Ver detalles y participantes
+                      </span>
+                    </button>
                   );
                 })}
               </div>
@@ -339,6 +369,140 @@ export default function MisClasesPage() {
         })}
       </div>
       </div>
+
+      {claseModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/60"
+            onClick={() => setClaseModalId(null)}
+          />
+          <div className="relative bg-card w-full sm:max-w-sm sm:rounded-3xl rounded-t-3xl p-5 max-h-[85vh] overflow-y-auto">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <p className="text-accent text-[11px] font-semibold uppercase tracking-widest mb-1">
+                  {new Date(claseModal.date).toLocaleDateString('es-ES', {
+                    weekday: 'long',
+                    day: 'numeric',
+                    month: 'long',
+                  })}
+                </p>
+                <h3 className="text-2xl font-extrabold">
+                  {new Date(claseModal.date).toLocaleTimeString('es-ES', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </h3>
+              </div>
+              <button
+                onClick={() => setClaseModalId(null)}
+                aria-label="Cerrar"
+                className="w-8 h-8 shrink-0 rounded-full bg-white/5 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 text-lg leading-none"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="mb-5">
+              <div className="h-1.5 w-full bg-page rounded-full overflow-hidden mb-1.5">
+                <div
+                  className={`h-full rounded-full ${claseModalCompleta ? 'bg-danger' : 'bg-accent'}`}
+                  style={{
+                    width: `${Math.min((claseModal._count.bookings / claseModal.capacity) * 100, 100)}%`,
+                  }}
+                />
+              </div>
+              <p className="text-xs text-gray-400">
+                {claseModal._count.bookings}/{claseModal.capacity} plazas ocupadas
+                {claseModal.enEspera > 0 && ` · ${claseModal.enEspera} en espera`}
+              </p>
+            </div>
+
+            <div className="mb-5">
+              <p className="text-[11px] font-bold uppercase tracking-widest text-gray-500 mb-2">
+                Apuntados
+              </p>
+              {claseModal.asistentes.length > 0 ? (
+                <div className="space-y-2">
+                  {claseModal.asistentes.map((asistente, i) => (
+                    <div key={i} className="flex items-center gap-2.5 text-sm">
+                      {asistente.fotoUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={asistente.fotoUrl}
+                          alt=""
+                          className="w-6 h-6 rounded-full object-cover shrink-0"
+                        />
+                      ) : (
+                        <div
+                          className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                            asistente.esTu ? 'bg-accent/15 text-accent' : 'bg-white/10 text-gray-300'
+                          }`}
+                        >
+                          {asistente.esTu ? 'Tú' : asistente.nombre.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <span className={asistente.esTu ? 'text-gray-200 font-medium' : 'text-gray-300'}>
+                        {asistente.esTu ? 'Tú' : asistente.nombre}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-gray-500">Aún no se ha apuntado nadie.</p>
+              )}
+            </div>
+
+            {claseModalMiReserva ? (
+              <div className="space-y-1.5">
+                <button
+                  onClick={() => cancelar(claseModalMiReserva.id)}
+                  disabled={procesando === claseModalMiReserva.id}
+                  className="w-full bg-dangersoft text-danger text-sm font-semibold py-2.5 rounded-xl hover:bg-danger/20 disabled:opacity-50"
+                >
+                  {procesando === claseModalMiReserva.id ? 'Cancelando...' : 'Cancelar reserva'}
+                </button>
+                <a
+                  href={`/api/bookings/${claseModalMiReserva.id}/ics`}
+                  download
+                  className="block text-center text-[11px] text-gray-500 hover:text-accent py-1"
+                >
+                  Añadir al calendario
+                </a>
+              </div>
+            ) : claseModalMiEspera ? (
+              <div className="space-y-1.5">
+                <div className="w-full bg-white/5 text-gray-300 text-xs font-semibold text-center py-2.5 rounded-xl">
+                  En lista de espera
+                  {claseModal.miPosicionEspera ? ` (posición ${claseModal.miPosicionEspera})` : ''}
+                </div>
+                <button
+                  onClick={() => salirDeEspera(claseModalMiEspera.id)}
+                  disabled={procesando === claseModalMiEspera.id}
+                  className="w-full text-[11px] text-gray-500 hover:text-danger disabled:opacity-50 py-1"
+                >
+                  {procesando === claseModalMiEspera.id ? 'Saliendo...' : 'Salir de la lista'}
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => apuntarse(claseModal.id)}
+                disabled={procesando === claseModal.id}
+                className={`w-full text-sm font-bold py-2.5 rounded-xl transition disabled:opacity-30 disabled:cursor-not-allowed ${
+                  claseModalCompleta
+                    ? 'bg-white/5 text-gray-200 hover:bg-white/10'
+                    : 'bg-accent text-page hover:brightness-95'
+                }`}
+              >
+                {procesando === claseModal.id
+                  ? 'Apuntando...'
+                  : claseModalCompleta
+                  ? 'Unirme a la lista de espera'
+                  : 'Apuntarme'}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

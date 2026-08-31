@@ -5,7 +5,9 @@
  * no reimplementar la lógica ahí.
  */
 
-const HORAS_LIMITE_CANCELACION = 3;
+// Exportada para que /inicio pueda avisar con la misma referencia horaria
+// que usa la regla de cancelación, en vez de duplicar el número "3" a mano.
+export const HORAS_LIMITE_CANCELACION = 3;
 
 /**
  * Determina si una cancelación se considera "a tiempo" o "tardía".

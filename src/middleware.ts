@@ -29,5 +29,5 @@ export default withAuth(
 // middleware. Fuera de esta lista (ej: /, /login, /register) no se aplica,
 // para que cualquiera pueda ver la home o registrarse sin estar logueado.
 export const config = {
-  matcher: ['/admin/:path*', '/mis-clases/:path*'],
+  matcher: ['/admin/:path*', '/mis-clases/:path*', '/perfil/:path*', '/inicio/:path*'],
 };

@@ -47,21 +47,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'La clase no existe' }, { status: 404 });
     }
 
-    // 1. Comprobar aforo disponible
-    if (clase._count.bookings >= clase.capacity) {
-      return NextResponse.json({ error: 'Esta clase ya está completa' }, { status: 409 });
-    }
-
-    // 2. Comprobar que no esté ya apuntado a esta misma clase
+    // 1. Comprobar que no esté ya apuntado (o en espera) en esta misma clase
     const reservaExistente = await prisma.booking.findUnique({
       where: { userId_classSessionId: { userId, classSessionId } },
     });
-    if (reservaExistente && reservaExistente.status === 'CONFIRMED') {
+    if (reservaExistente?.status === 'CONFIRMED') {
       return NextResponse.json({ error: 'Ya estás apuntado a esta clase' }, { status: 409 });
     }
+    if (reservaExistente?.status === 'WAITLISTED') {
+      return NextResponse.json({ error: 'Ya estás en la lista de espera de esta clase' }, { status: 409 });
+    }
 
-    // 3. Comprobar que el usuario tiene el pago al día. Sin esto, alguien
-    // podría seguir reservando clases indefinidamente sin haber pagado nunca.
+    // 2. Comprobar que el usuario tiene el pago al día. Sin esto, alguien
+    // podría seguir reservando (o esperando) clases indefinidamente sin haber pagado nunca.
     const ultimoPago = await prisma.payment.findFirst({
       where: { userId },
       orderBy: { paidAt: 'desc' },
@@ -74,12 +72,38 @@ export async function POST(request: Request) {
       );
     }
 
-    // 4. Comprobar el límite semanal según la tarifa del usuario
+    // 3. El usuario tiene que existir y no haber solicitado la baja
     const usuario = await prisma.user.findUnique({ where: { id: userId } });
     if (!usuario) {
       return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
     }
 
+    // Si ha solicitado la baja, no puede apuntarse a clases nuevas (pero
+    // conserva las reservas que ya tuviera hechas hasta que el admin la confirme)
+    if (usuario.cancellationRequested) {
+      return NextResponse.json(
+        { error: 'Has solicitado la baja, así que no puedes reservar nuevas clases.' },
+        { status: 403 }
+      );
+    }
+
+    // 4. Si la clase está completa, se apunta a la LISTA DE ESPERA en vez de
+    // reservar directamente. No consume ningún día de su tarifa semanal
+    // hasta que se promocione a CONFIRMED (ver PATCH /api/bookings/[id]).
+    if (clase._count.bookings >= clase.capacity) {
+      const enEspera = reservaExistente
+        ? await prisma.booking.update({
+            where: { id: reservaExistente.id },
+            data: { status: 'WAITLISTED', cancelledAt: null },
+          })
+        : await prisma.booking.create({
+            data: { userId, classSessionId, status: 'WAITLISTED' },
+          });
+
+      return NextResponse.json({ ...enEspera, enListaDeEspera: true }, { status: 201 });
+    }
+
+    // 5. Comprobar el límite semanal según la tarifa del usuario
     const inicio = inicioDeSemana(clase.date);
     const fin = finDeSemana(clase.date);
 
@@ -101,7 +125,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Si ya existía una reserva cancelada a tiempo para esta clase, la
+    // Si ya existía una reserva cancelada (o en espera) para esta clase, la
     // reactivamos en vez de crear un duplicado (evita chocar con la
     // restricción única userId+classSessionId)
     const reserva = reservaExistente

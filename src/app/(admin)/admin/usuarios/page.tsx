@@ -10,6 +10,8 @@ type Usuario = {
   weeklyPlan: 'ONE_DAY' | 'TWO_DAYS' | 'THREE_DAYS';
   createdByAdmin: boolean;
   tieneAcceso: boolean;
+  cancellationRequested: boolean;
+  cancellationRequestedAt: string | null;
 };
 
 const ETIQUETA_PLAN: Record<Usuario['weeklyPlan'], string> = {
@@ -77,6 +79,19 @@ export default function UsuariosAdminPage() {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ role: nuevoRol }),
+    });
+    setActualizandoId(null);
+    cargarUsuarios();
+  }
+
+  // accion: 'confirmarBaja' revoca el acceso del usuario de verdad,
+  // 'rechazarBaja' solo descarta la solicitud y deja todo como estaba
+  async function procesarBaja(id: string, accion: 'confirmarBaja' | 'rechazarBaja') {
+    setActualizandoId(id);
+    await fetch(`/api/users/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accion }),
     });
     setActualizandoId(null);
     cargarUsuarios();
@@ -159,8 +174,31 @@ export default function UsuariosAdminPage() {
                     SIN ACCESO
                   </span>
                 )}
+                {u.cancellationRequested && (
+                  <span className="text-[10px] font-bold bg-dangersoft text-danger px-2 py-0.5 rounded-full">
+                    BAJA SOLICITADA
+                  </span>
+                )}
               </p>
               <p className="text-xs text-gray-500">{u.email}</p>
+              {u.cancellationRequested && (
+                <div className="flex items-center gap-2 mt-2">
+                  <button
+                    onClick={() => procesarBaja(u.id, 'confirmarBaja')}
+                    disabled={actualizandoId === u.id}
+                    className="text-[11px] font-semibold bg-danger/15 text-danger hover:bg-danger/25 px-2.5 py-1 rounded-lg disabled:opacity-50"
+                  >
+                    Confirmar baja
+                  </button>
+                  <button
+                    onClick={() => procesarBaja(u.id, 'rechazarBaja')}
+                    disabled={actualizandoId === u.id}
+                    className="text-[11px] font-semibold bg-white/5 hover:bg-white/10 px-2.5 py-1 rounded-lg disabled:opacity-50"
+                  >
+                    Descartar
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-2">

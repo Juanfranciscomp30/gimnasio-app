@@ -35,6 +35,8 @@ export async function GET() {
       createdByAdmin: true,
       passwordHash: true, // lo pedimos solo para saber si es null, NUNCA se lo mandamos al frontend
       createdAt: true,
+      cancellationRequested: true,
+      cancellationRequestedAt: true,
     },
     orderBy: { createdAt: 'desc' },
   });
