@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { staggerContainer, fadeUpItem, sheetBackdrop, sheetPanel, hoverLift, tapScale } from '@/lib/motion';
 
 type Asistente = {
   esTu: boolean;
@@ -196,20 +198,32 @@ export default function MisClasesPage() {
   const claseModalCompleta = claseModal ? claseModal._count.bookings >= claseModal.capacity : false;
 
   return (
-    <div className="min-h-screen bg-page pb-24">
-      <div className="max-w-sm mx-auto">
-      <div className="px-5 pt-6 pb-3">
+    <div className="min-h-screen bg-page bg-gradient-hero bg-no-repeat pb-24">
+      <div className="max-w-sm sm:max-w-xl mx-auto">
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="px-5 pt-6 pb-3"
+      >
         <p className="text-accent text-[11px] font-semibold tracking-widest uppercase mb-1">
           Reservas
         </p>
-        <h1 className="text-xl font-extrabold">Elige tu clase</h1>
-      </div>
+        <h1 className="text-2xl font-extrabold tracking-tight">Elige tu clase</h1>
+      </motion.div>
 
-      {mensaje && (
-        <div className="mx-5 mb-4 bg-accentsoft border border-accent/30 text-accent text-sm px-4 py-3 rounded-xl">
-          {mensaje}
-        </div>
-      )}
+      <AnimatePresence>
+        {mensaje && (
+          <motion.div
+            initial={{ opacity: 0, y: -8, height: 0 }}
+            animate={{ opacity: 1, y: 0, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mx-5 mb-4 bg-accentsoft border border-accent/30 text-accent text-sm px-4 py-3 rounded-xl overflow-hidden"
+          >
+            {mensaje}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Cabecera del mes con navegación */}
       <div className="px-5 flex items-center justify-between mb-2">
@@ -253,17 +267,24 @@ export default function MisClasesPage() {
           const deshabilitado = !perteneceAlMes || esPasado;
 
           return (
-            <button
+            <motion.button
               key={dia.toISOString()}
               disabled={deshabilitado}
               onClick={() => setDiaSeleccionado(dia)}
-              className={`relative w-9 h-9 rounded-lg flex flex-col items-center justify-center text-xs font-semibold transition
-                ${deshabilitado ? 'text-gray-700 cursor-not-allowed' : 'text-gray-200 hover:bg-cardhover'}
-                ${seleccionado && !deshabilitado ? 'bg-accent text-page' : ''}
+              whileTap={deshabilitado ? undefined : tapScale}
+              className={`relative w-9 h-9 rounded-lg flex flex-col items-center justify-center text-xs font-semibold transition-colors
+                ${deshabilitado ? 'text-gray-700 cursor-not-allowed' : seleccionado ? 'text-page' : 'text-gray-200 hover:bg-cardhover'}
                 ${esHoy && !seleccionado ? 'ring-1 ring-accent/60' : ''}
               `}
             >
-              {dia.getDate()}
+              {seleccionado && !deshabilitado && (
+                <motion.span
+                  layoutId="dia-seleccionado-pill"
+                  className="absolute inset-0 bg-accent rounded-lg"
+                  transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+                />
+              )}
+              <span className="relative">{dia.getDate()}</span>
               {tieneReserva && (
                 <span
                   className={`absolute bottom-1 w-1 h-1 rounded-full ${
@@ -271,7 +292,7 @@ export default function MisClasesPage() {
                   }`}
                 />
               )}
-            </button>
+            </motion.button>
           );
         })}
       </div>
@@ -305,7 +326,12 @@ export default function MisClasesPage() {
               <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-2">
                 {franja.titulo}
               </h2>
-              <div className="grid grid-cols-2 gap-3">
+              <motion.div
+                variants={staggerContainer}
+                initial="hidden"
+                animate="show"
+                className="grid grid-cols-2 gap-3"
+              >
                 {clasesFranja.map((clase) => {
                   const miReserva = reservaConfirmadaPara(clase.id);
                   const miEspera = reservaEnEsperaPara(clase.id);
@@ -314,12 +340,15 @@ export default function MisClasesPage() {
                   const plazasLibres = clase.capacity - clase._count.bookings;
 
                   return (
-                    <button
+                    <motion.button
                       key={clase.id}
                       type="button"
+                      variants={fadeUpItem}
+                      whileHover={hoverLift}
+                      whileTap={tapScale}
                       onClick={() => setClaseModalId(clase.id)}
-                      className={`text-left w-full rounded-2xl p-4 flex flex-col gap-3 border transition hover:brightness-95
-                        ${miReserva ? 'bg-accentsoft border-accent/40' : 'bg-card border-transparent'}`}
+                      className={`text-left w-full rounded-2xl p-4 flex flex-col gap-3 border transition-shadow
+                        ${miReserva ? 'bg-accentsoft border-accent/40' : 'bg-card border-transparent hover:shadow-glow'}`}
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-lg font-bold">
@@ -342,11 +371,13 @@ export default function MisClasesPage() {
 
                       <div>
                         <div className="h-1.5 w-full bg-page rounded-full overflow-hidden">
-                          <div
+                          <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${Math.min(ocupacion * 100, 100)}%` }}
+                            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
                             className={`h-full rounded-full ${
                               completa ? 'bg-danger' : 'bg-accent'
                             }`}
-                            style={{ width: `${Math.min(ocupacion * 100, 100)}%` }}
                           />
                         </div>
                         <p className="text-[11px] text-gray-400 mt-1">
@@ -361,23 +392,34 @@ export default function MisClasesPage() {
                       <span className="text-[11px] text-accent font-semibold">
                         Ver detalles y participantes
                       </span>
-                    </button>
+                    </motion.button>
                   );
                 })}
-              </div>
+              </motion.div>
             </div>
           );
         })}
       </div>
       </div>
 
-      {claseModal && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          <div
-            className="absolute inset-0 bg-black/60"
-            onClick={() => setClaseModalId(null)}
-          />
-          <div className="relative bg-card w-full sm:max-w-sm sm:rounded-3xl rounded-t-3xl p-5 max-h-[85vh] overflow-y-auto">
+      <AnimatePresence>
+        {claseModal && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+            <motion.div
+              variants={sheetBackdrop}
+              initial="hidden"
+              animate="show"
+              exit="exit"
+              className="absolute inset-0 bg-black/60"
+              onClick={() => setClaseModalId(null)}
+            />
+            <motion.div
+              variants={sheetPanel}
+              initial="hidden"
+              animate="show"
+              exit="exit"
+              className="relative bg-card w-full sm:max-w-sm sm:rounded-3xl rounded-t-3xl p-5 max-h-[85vh] overflow-y-auto"
+            >
             <div className="flex items-start justify-between mb-4">
               <div>
                 <p className="text-accent text-[11px] font-semibold uppercase tracking-widest mb-1">
@@ -405,11 +447,13 @@ export default function MisClasesPage() {
 
             <div className="mb-5">
               <div className="h-1.5 w-full bg-page rounded-full overflow-hidden mb-1.5">
-                <div
-                  className={`h-full rounded-full ${claseModalCompleta ? 'bg-danger' : 'bg-accent'}`}
-                  style={{
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{
                     width: `${Math.min((claseModal._count.bookings / claseModal.capacity) * 100, 100)}%`,
                   }}
+                  transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                  className={`h-full rounded-full ${claseModalCompleta ? 'bg-danger' : 'bg-accent'}`}
                 />
               </div>
               <p className="text-xs text-gray-400">
@@ -501,9 +545,10 @@ export default function MisClasesPage() {
                   : 'Apuntarme'}
               </button>
             )}
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
     </div>
   );
 }

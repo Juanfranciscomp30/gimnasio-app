@@ -3,6 +3,10 @@
 import { useState } from 'react';
 import { signIn, getSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { motion } from 'framer-motion';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faDumbbell, faEnvelope, faLock, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
+import { tapScale } from '@/lib/motion';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -41,12 +45,21 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-page px-5">
-      <form
+    <main className="relative min-h-screen flex items-center justify-center bg-page bg-gradient-hero px-5 overflow-hidden">
+      <div className="absolute -top-24 -left-24 w-72 h-72 bg-accent/10 rounded-full blur-3xl animate-float" />
+      <div className="absolute -bottom-24 -right-24 w-72 h-72 bg-accent/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '1.5s' }} />
+
+      <motion.form
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ type: 'spring', stiffness: 260, damping: 26 }}
         onSubmit={handleSubmit}
-        className="bg-card p-8 rounded-2xl w-full max-w-sm space-y-5"
+        className="relative bg-card border border-white/5 shadow-card p-8 rounded-3xl w-full max-w-sm space-y-5"
       >
-        <div>
+        <div className="flex flex-col items-center text-center mb-1">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-accent flex items-center justify-center mb-4 shadow-glow">
+            <FontAwesomeIcon icon={faDumbbell} className="w-5 h-5 text-page" />
+          </div>
           <p className="text-accent text-xs font-semibold tracking-widest uppercase mb-1">
             Bienvenido de nuevo
           </p>
@@ -54,42 +67,55 @@ export default function LoginPage() {
         </div>
 
         {error && (
-          <p className="text-danger text-sm bg-dangersoft border border-danger/30 px-3 py-2 rounded-xl">
+          <motion.p
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-danger text-sm bg-dangersoft border border-danger/30 px-3 py-2 rounded-xl flex items-center gap-2"
+          >
+            <FontAwesomeIcon icon={faTriangleExclamation} className="w-3.5 h-3.5 shrink-0" />
             {error}
-          </p>
+          </motion.p>
         )}
 
         <div>
           <label className="block text-xs font-semibold text-gray-400 mb-1.5">Email</label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="w-full bg-page border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder:text-gray-600 focus:outline-none focus:border-accent/60"
-            placeholder="tucorreo@ejemplo.com"
-          />
+          <div className="relative">
+            <FontAwesomeIcon icon={faEnvelope} className="absolute left-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600" />
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="w-full bg-page border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-white placeholder:text-gray-600 focus:outline-none focus:border-accent/60 focus:ring-2 focus:ring-accent/20 transition"
+              placeholder="tucorreo@ejemplo.com"
+            />
+          </div>
         </div>
 
         <div>
           <label className="block text-xs font-semibold text-gray-400 mb-1.5">Contraseña</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            className="w-full bg-page border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder:text-gray-600 focus:outline-none focus:border-accent/60"
-            placeholder="••••••••"
-          />
+          <div className="relative">
+            <FontAwesomeIcon icon={faLock} className="absolute left-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600" />
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="w-full bg-page border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-white placeholder:text-gray-600 focus:outline-none focus:border-accent/60 focus:ring-2 focus:ring-accent/20 transition"
+              placeholder="••••••••"
+            />
+          </div>
         </div>
 
-        <button
+        <motion.button
           type="submit"
           disabled={cargando}
-          className="w-full bg-accent text-page font-bold py-2.5 rounded-xl hover:brightness-95 disabled:opacity-50 transition"
+          whileHover={{ y: -1 }}
+          whileTap={tapScale}
+          className="w-full bg-gradient-accent text-page font-bold py-2.5 rounded-xl shadow-glow disabled:opacity-50 transition"
         >
           {cargando ? 'Entrando...' : 'Entrar'}
-        </button>
+        </motion.button>
 
         <p className="text-sm text-center text-gray-500">
           ¿No tienes cuenta?{' '}
@@ -97,7 +123,7 @@ export default function LoginPage() {
             Regístrate
           </a>
         </p>
-      </form>
+      </motion.form>
     </main>
   );
 }

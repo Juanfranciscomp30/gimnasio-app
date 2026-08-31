@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { staggerContainer, fadeUpItem, hoverLift, tapScale } from '@/lib/motion';
 
 type Usuario = {
   id: string;
@@ -130,11 +132,20 @@ export default function UsuariosAdminPage() {
   }
 
   return (
-    <div className="p-8 max-w-3xl mx-auto">
-      <h1 className="text-2xl font-extrabold mb-6">Usuarios</h1>
+    <div className="min-h-screen bg-page bg-gradient-hero bg-no-repeat p-4 sm:p-8">
+    <motion.div
+      variants={staggerContainer}
+      initial="hidden"
+      animate="show"
+      className="max-w-3xl mx-auto"
+    >
+      <motion.h1 variants={fadeUpItem} className="text-2xl sm:text-3xl font-extrabold mb-6 tracking-tight">
+        Usuarios
+      </motion.h1>
 
       {/* Alta manual */}
-      <form
+      <motion.form
+        variants={fadeUpItem}
         onSubmit={handleAltaManual}
         className="bg-card p-6 rounded-2xl mb-8 space-y-4"
       >
@@ -177,29 +188,33 @@ export default function UsuariosAdminPage() {
           </select>
         </div>
 
-        <button
+        <motion.button
           type="submit"
           disabled={cargando}
-          className="bg-accent text-page font-bold px-5 py-2 rounded-xl text-sm hover:brightness-95 disabled:opacity-50"
+          whileHover={hoverLift}
+          whileTap={tapScale}
+          className="bg-gradient-accent text-page font-bold px-5 py-2 rounded-xl text-sm shadow-glow disabled:opacity-50"
         >
           {cargando ? 'Añadiendo...' : 'Añadir usuario'}
-        </button>
-      </form>
+        </motion.button>
+      </motion.form>
 
       {/* Buscador */}
-      <input
+      <motion.input
+        variants={fadeUpItem}
         type="text"
         value={busqueda}
         onChange={(e) => setBusqueda(e.target.value)}
         placeholder="Buscar por nombre o email..."
-        className="w-full bg-card border border-white/10 rounded-xl px-4 py-2.5 text-sm placeholder:text-gray-600 focus:outline-none focus:border-accent/60 mb-4"
+        className="w-full bg-card border border-white/10 rounded-xl px-4 py-2.5 text-sm placeholder:text-gray-600 focus:outline-none focus:border-accent/60 focus:ring-2 focus:ring-accent/20 transition mb-4"
       />
 
       {/* Listado */}
-      <div className="space-y-2">
+      <motion.div variants={staggerContainer} className="space-y-2">
         {usuariosFiltrados.length === 0 && (
           <p className="text-gray-500 text-sm py-4 text-center">Ningún usuario coincide con la búsqueda.</p>
         )}
+        <AnimatePresence>
         {usuariosFiltrados.map((u) => {
           const ultimoPago = ultimoPagoDe(u.id);
           const validUntilDate = ultimoPago ? new Date(ultimoPago.validUntil) : null;
@@ -208,8 +223,12 @@ export default function UsuariosAdminPage() {
           const nuncaPago = !ultimoPago;
 
           return (
-          <div
+          <motion.div
             key={u.id}
+            layout
+            variants={fadeUpItem}
+            exit={{ opacity: 0, x: -12 }}
+            whileHover={hoverLift}
             className="bg-card p-4 rounded-2xl flex flex-wrap items-center justify-between gap-3"
           >
             <div className="flex items-center gap-3">
@@ -306,10 +325,12 @@ export default function UsuariosAdminPage() {
                 {u.role === 'ADMIN' ? 'Quitar admin' : 'Hacer admin'}
               </button>
             </div>
-          </div>
+          </motion.div>
           );
         })}
-      </div>
+        </AnimatePresence>
+      </motion.div>
+    </motion.div>
     </div>
   );
 }
