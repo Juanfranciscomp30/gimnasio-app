@@ -12,6 +12,13 @@ type Usuario = {
   tieneAcceso: boolean;
   cancellationRequested: boolean;
   cancellationRequestedAt: string | null;
+  profileImageUrl: string | null;
+};
+
+type Pago = {
+  userId: string;
+  validUntil: string;
+  paidAt: string;
 };
 
 const ETIQUETA_PLAN: Record<Usuario['weeklyPlan'], string> = {
@@ -20,8 +27,17 @@ const ETIQUETA_PLAN: Record<Usuario['weeklyPlan'], string> = {
   THREE_DAYS: '3 días/semana',
 };
 
+// Mismo cálculo que en /admin/pagos, para no depender de otra pestaña
+function vencePronto(validUntil: Date, diasAviso = 3) {
+  const msRestantes = validUntil.getTime() - Date.now();
+  const diasRestantes = msRestantes / (1000 * 60 * 60 * 24);
+  return diasRestantes >= 0 && diasRestantes <= diasAviso;
+}
+
 export default function UsuariosAdminPage() {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  const [pagos, setPagos] = useState<Pago[]>([]);
+  const [busqueda, setBusqueda] = useState('');
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
   const [plan, setPlan] = useState<Usuario['weeklyPlan']>('ONE_DAY');
@@ -30,13 +46,29 @@ export default function UsuariosAdminPage() {
   const [actualizandoId, setActualizandoId] = useState<string | null>(null);
 
   async function cargarUsuarios() {
-    const res = await fetch('/api/users');
-    if (res.ok) setUsuarios(await res.json());
+    const [resUsuarios, resPagos] = await Promise.all([
+      fetch('/api/users'),
+      fetch('/api/payments'),
+    ]);
+    if (resUsuarios.ok) setUsuarios(await resUsuarios.json());
+    if (resPagos.ok) setPagos(await resPagos.json());
   }
 
   useEffect(() => {
     cargarUsuarios();
   }, []);
+
+  function ultimoPagoDe(userId: string): Pago | undefined {
+    return pagos
+      .filter((p) => p.userId === userId)
+      .sort((a, b) => new Date(b.paidAt).getTime() - new Date(a.paidAt).getTime())[0];
+  }
+
+  const usuariosFiltrados = usuarios.filter((u) => {
+    const q = busqueda.trim().toLowerCase();
+    if (!q) return true;
+    return u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
+  });
 
   async function handleAltaManual(e: React.FormEvent) {
     e.preventDefault();
@@ -154,15 +186,47 @@ export default function UsuariosAdminPage() {
         </button>
       </form>
 
+      {/* Buscador */}
+      <input
+        type="text"
+        value={busqueda}
+        onChange={(e) => setBusqueda(e.target.value)}
+        placeholder="Buscar por nombre o email..."
+        className="w-full bg-card border border-white/10 rounded-xl px-4 py-2.5 text-sm placeholder:text-gray-600 focus:outline-none focus:border-accent/60 mb-4"
+      />
+
       {/* Listado */}
       <div className="space-y-2">
-        {usuarios.map((u) => (
+        {usuariosFiltrados.length === 0 && (
+          <p className="text-gray-500 text-sm py-4 text-center">Ningún usuario coincide con la búsqueda.</p>
+        )}
+        {usuariosFiltrados.map((u) => {
+          const ultimoPago = ultimoPagoDe(u.id);
+          const validUntilDate = ultimoPago ? new Date(ultimoPago.validUntil) : null;
+          const vencido = validUntilDate ? validUntilDate < new Date() : false;
+          const proximoAVencer = validUntilDate && !vencido ? vencePronto(validUntilDate) : false;
+          const nuncaPago = !ultimoPago;
+
+          return (
           <div
             key={u.id}
             className="bg-card p-4 rounded-2xl flex flex-wrap items-center justify-between gap-3"
           >
-            <div>
-              <p className="font-semibold text-sm flex items-center gap-2">
+            <div className="flex items-center gap-3">
+              {u.profileImageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={u.profileImageUrl}
+                  alt=""
+                  className="w-9 h-9 rounded-full object-cover shrink-0"
+                />
+              ) : (
+                <div className="w-9 h-9 rounded-full bg-white/5 text-gray-400 flex items-center justify-center text-xs font-bold shrink-0">
+                  {u.name.charAt(0).toUpperCase()}
+                </div>
+              )}
+              <div>
+              <p className="font-semibold text-sm flex items-center gap-2 flex-wrap">
                 {u.name}
                 {u.role === 'ADMIN' && (
                   <span className="text-[10px] font-bold bg-accentsoft text-accent px-2 py-0.5 rounded-full">
@@ -177,6 +241,26 @@ export default function UsuariosAdminPage() {
                 {u.cancellationRequested && (
                   <span className="text-[10px] font-bold bg-dangersoft text-danger px-2 py-0.5 rounded-full">
                     BAJA SOLICITADA
+                  </span>
+                )}
+                {nuncaPago && (
+                  <span className="text-[10px] font-bold bg-white/5 text-gray-400 px-2 py-0.5 rounded-full">
+                    SIN PAGOS
+                  </span>
+                )}
+                {vencido && (
+                  <span className="text-[10px] font-bold bg-dangersoft text-danger px-2 py-0.5 rounded-full">
+                    CUOTA VENCIDA
+                  </span>
+                )}
+                {proximoAVencer && (
+                  <span className="text-[10px] font-bold bg-amber-400/10 text-amber-400 px-2 py-0.5 rounded-full">
+                    VENCE PRONTO
+                  </span>
+                )}
+                {ultimoPago && !vencido && !proximoAVencer && (
+                  <span className="text-[10px] font-bold bg-accentsoft text-accent px-2 py-0.5 rounded-full">
+                    AL DÍA
                   </span>
                 )}
               </p>
@@ -199,6 +283,7 @@ export default function UsuariosAdminPage() {
                   </button>
                 </div>
               )}
+              </div>
             </div>
 
             <div className="flex items-center gap-2">
@@ -222,7 +307,8 @@ export default function UsuariosAdminPage() {
               </button>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

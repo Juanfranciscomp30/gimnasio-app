@@ -83,6 +83,7 @@ export async function GET(request: Request) {
       id: clase.id,
       date: clase.date,
       capacity: clase.capacity,
+      cancelled: clase.cancelled,
       createdAt: clase.createdAt,
       _count: { bookings: confirmados.length },
       asistentes,
