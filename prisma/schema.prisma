@@ -88,6 +88,12 @@ model Payment {
   validUntil DateTime   // hasta cuándo cubre este pago
 
   user User @relation(fields: [userId], references: [id])
+
+  // Cada reserva/cambio/cancelación consulta "el último pago de este
+  // usuario" (findFirst where userId, orderBy paidAt desc) — sin este
+  // índice esa consulta, que es de las más frecuentes de toda la app,
+  // recorre la tabla entera cada vez.
+  @@index([userId, paidAt])
 }
 
 // Gasto del gimnasio (luz, maquinaria, etc.) — no está ligado a ningún
