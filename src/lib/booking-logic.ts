@@ -5,6 +5,9 @@
  * no reimplementar la lógica ahí.
  */
 
+import { prisma } from './prisma';
+import { estaVencido } from './payment-logic';
+
 // Exportada para que /inicio pueda avisar con la misma referencia horaria
 // que usa la regla de cancelación, en vez de duplicar el número "3" a mano.
 export const HORAS_LIMITE_CANCELACION = 3;
@@ -100,4 +103,53 @@ export function generarFechasRecurrentes({
   }
 
   return fechas;
+}
+
+/**
+ * Se acaba de liberar un hueco en una clase (por cancelación o por un
+ * cambio de reserva): si hay gente en lista de espera, promocionamos al
+ * primero (por orden de llegada) que sea elegible de verdad -> pago al
+ * día, sin baja pendiente, y que no haya agotado ya su límite semanal.
+ * Si el primero no es elegible, probamos con el siguiente, hasta
+ * encontrar uno o quedarnos sin candidatos.
+ *
+ * Compartida entre la cancelación normal (PATCH /api/bookings/[id]) y el
+ * cambio de reserva (PATCH /api/bookings/[id]/move), para no duplicar la
+ * misma regla de negocio en dos sitios.
+ */
+export async function promocionarSiguienteEnEspera(classSessionId: string, fechaClase: Date) {
+  const enEspera = await prisma.booking.findMany({
+    where: { classSessionId, status: 'WAITLISTED' },
+    orderBy: { createdAt: 'asc' },
+    take: 10,
+  });
+
+  const inicioSemana = inicioDeSemana(fechaClase);
+  const finSemana = finDeSemana(fechaClase);
+
+  for (const candidato of enEspera) {
+    const usuario = await prisma.user.findUnique({ where: { id: candidato.userId } });
+    if (!usuario || usuario.cancellationRequested) continue;
+
+    const ultimoPago = await prisma.payment.findFirst({
+      where: { userId: candidato.userId },
+      orderBy: { paidAt: 'desc' },
+    });
+    if (!ultimoPago || estaVencido(ultimoPago.validUntil)) continue;
+
+    const usadasEstaSemana = await prisma.booking.count({
+      where: {
+        userId: candidato.userId,
+        status: { in: ['CONFIRMED', 'CANCELLED_LATE'] },
+        classSession: { date: { gte: inicioSemana, lt: finSemana } },
+      },
+    });
+    if (usadasEstaSemana >= LIMITE_POR_PLAN[usuario.weeklyPlan]) continue;
+
+    await prisma.booking.update({
+      where: { id: candidato.id },
+      data: { status: 'CONFIRMED', cancelledAt: null },
+    });
+    return; // solo se ha liberado 1 plaza, promocionamos a un único candidato
+  }
 }
