@@ -71,6 +71,11 @@ export default function MisClasesPage() {
   const [mensaje, setMensaje] = useState('');
   const [procesando, setProcesando] = useState<string | null>(null);
   const [claseModalId, setClaseModalId] = useState<string | null>(null);
+  const [modoCambio, setModoCambio] = useState<{
+    bookingId: string;
+    classSessionId: string;
+    fechaOriginal: string;
+  } | null>(null);
 
   const hoy = useMemo(() => soloFecha(new Date()), []);
   const [mesReferencia, setMesReferencia] = useState<Date>(
@@ -158,6 +163,39 @@ export default function MisClasesPage() {
     cargarDatos();
   }
 
+  // Entra en "modo cambio": el usuario va a elegir un día nuevo para esta
+  // reserva sin perderla hasta que el cambio se confirme.
+  function iniciarCambio(bookingId: string, classSessionId: string, fechaOriginal: string) {
+    setModoCambio({ bookingId, classSessionId, fechaOriginal });
+    setClaseModalId(null);
+    setMensaje('');
+  }
+
+  function cancelarModoCambio() {
+    setModoCambio(null);
+  }
+
+  async function cambiarReserva(nuevaClassSessionId: string) {
+    if (!modoCambio) return;
+    setMensaje('');
+    setProcesando(modoCambio.bookingId);
+    const res = await fetch(`/api/bookings/${modoCambio.bookingId}/move`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nuevaClassSessionId }),
+    });
+    const data = await res.json();
+    setProcesando(null);
+    if (!res.ok) {
+      setMensaje(data.error);
+      return;
+    }
+    setMensaje(data.aviso);
+    setModoCambio(null);
+    setClaseModalId(null);
+    cargarDatos();
+  }
+
   const diasCuadricula = useMemo(
     () => generarCuadriculaMes(mesReferencia),
     [mesReferencia]
@@ -221,6 +259,32 @@ export default function MisClasesPage() {
             className="mx-5 mb-4 bg-accentsoft border border-accent/30 text-accent text-sm px-4 py-3 rounded-xl overflow-hidden"
           >
             {mensaje}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {modoCambio && (
+          <motion.div
+            initial={{ opacity: 0, y: -8, height: 0 }}
+            animate={{ opacity: 1, y: 0, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mx-5 mb-4 bg-accentsoft border border-accent/30 text-accent text-xs px-4 py-3 rounded-xl overflow-hidden flex items-center justify-between gap-3"
+          >
+            <span>
+              Elige el nuevo día para tu reserva del{' '}
+              {new Date(modoCambio.fechaOriginal).toLocaleDateString('es-ES', {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+              })}.
+            </span>
+            <button
+              onClick={cancelarModoCambio}
+              className="shrink-0 font-semibold underline hover:no-underline"
+            >
+              Cancelar cambio
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
@@ -497,8 +561,44 @@ export default function MisClasesPage() {
               )}
             </div>
 
-            {claseModalMiReserva ? (
+            {modoCambio ? (
+              claseModal.id === modoCambio.classSessionId ? (
+                <div className="space-y-1.5">
+                  <div className="w-full bg-white/5 text-gray-300 text-xs font-semibold text-center py-2.5 rounded-xl">
+                    Esta es la reserva que vas a cambiar. Elige otro día en el calendario.
+                  </div>
+                  <button
+                    onClick={cancelarModoCambio}
+                    className="w-full text-[11px] text-gray-500 hover:text-danger py-1"
+                  >
+                    Cancelar cambio
+                  </button>
+                </div>
+              ) : claseModalMiReserva || claseModalMiEspera ? (
+                <div className="w-full bg-white/5 text-gray-300 text-xs font-semibold text-center py-2.5 rounded-xl">
+                  Ya tienes algo reservado este día, no puedes moverte aquí.
+                </div>
+              ) : claseModalCompleta ? (
+                <div className="w-full bg-white/5 text-gray-300 text-xs font-semibold text-center py-2.5 rounded-xl">
+                  Sin hueco libre este día. Elige otro.
+                </div>
+              ) : (
+                <button
+                  onClick={() => cambiarReserva(claseModal.id)}
+                  disabled={procesando === modoCambio.bookingId}
+                  className="w-full bg-accent text-page text-sm font-bold py-2.5 rounded-xl hover:brightness-95 disabled:opacity-50"
+                >
+                  {procesando === modoCambio.bookingId ? 'Moviendo...' : 'Mover aquí mi reserva'}
+                </button>
+              )
+            ) : claseModalMiReserva ? (
               <div className="space-y-1.5">
+                <button
+                  onClick={() => iniciarCambio(claseModalMiReserva.id, claseModal.id, claseModal.date)}
+                  className="w-full bg-white/5 text-gray-200 text-sm font-semibold py-2.5 rounded-xl hover:bg-white/10"
+                >
+                  Cambiar de día
+                </button>
                 <button
                   onClick={() => cancelar(claseModalMiReserva.id)}
                   disabled={procesando === claseModalMiReserva.id}
