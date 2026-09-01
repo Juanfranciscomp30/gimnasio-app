@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -191,10 +192,12 @@ export default function PerfilPage() {
             aria-label="Cambiar foto de perfil"
           >
             {perfil.profileImageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+                            <Image
                 src={perfil.profileImageUrl}
                 alt="Foto de perfil"
+                width={96}
+                height={96}
+                priority
                 className="w-24 h-24 rounded-full object-cover ring-4 ring-accent/20"
               />
             ) : (

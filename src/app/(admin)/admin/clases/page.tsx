@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faRepeat, faPlus, faMinus } from '@fortawesome/free-solid-svg-icons';
 import clsx from 'clsx';
@@ -630,10 +631,11 @@ export default function ClasesAdminPage() {
                     <div key={b.id} className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2.5 min-w-0">
                         {b.user.profileImageUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
+                                                    <Image
                             src={b.user.profileImageUrl}
                             alt=""
+                            width={24}
+                            height={24}
                             className="w-6 h-6 rounded-full object-cover shrink-0"
                           />
                         ) : (

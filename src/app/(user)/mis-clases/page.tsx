@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { staggerContainer, fadeUpItem, sheetBackdrop, sheetPanel, hoverLift, tapScale } from '@/lib/motion';
 
@@ -84,9 +85,12 @@ export default function MisClasesPage() {
   const [diaSeleccionado, setDiaSeleccionado] = useState<Date>(hoy);
 
   async function cargarDatos() {
+    // El calendario nunca deja seleccionar ni un mes ni un día pasado, así
+    // que no hace falta traer el historial completo de clases/reservas
+    // (que solo crece con el tiempo) para pintar esta pantalla.
     const [resClases, resReservas] = await Promise.all([
-      fetch('/api/classes'),
-      fetch('/api/bookings'),
+      fetch('/api/classes?when=upcoming'),
+      fetch('/api/bookings?estado=activas'),
     ]);
     setClases(await resClases.json());
     setReservas(await resReservas.json());
@@ -535,10 +539,11 @@ export default function MisClasesPage() {
                   {claseModal.asistentes.map((asistente, i) => (
                     <div key={i} className="flex items-center gap-2.5 text-sm">
                       {asistente.fotoUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
+                                                <Image
                           src={asistente.fotoUrl}
                           alt=""
+                          width={24}
+                          height={24}
                           className="w-6 h-6 rounded-full object-cover shrink-0"
                         />
                       ) : (

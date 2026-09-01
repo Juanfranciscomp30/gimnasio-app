@@ -42,8 +42,13 @@ export async function GET(request: Request) {
   const when = searchParams.get('when');
 
   const ahora = new Date();
+  // "upcoming" cuenta desde el INICIO del día de hoy (00:00), no desde el
+  // instante exacto: así una clase de esta mañana no desaparece del
+  // calendario a media tarde solo porque ya haya pasado la hora.
+  const inicioDeHoy = new Date(ahora);
+  inicioDeHoy.setHours(0, 0, 0, 0);
   const filtroFecha =
-    when === 'upcoming' ? { gte: ahora } : when === 'past' ? { lt: ahora } : undefined;
+    when === 'upcoming' ? { gte: inicioDeHoy } : when === 'past' ? { lt: inicioDeHoy } : undefined;
 
   const clases = await prisma.classSession.findMany({
     where: filtroFecha ? { date: filtroFecha } : undefined,

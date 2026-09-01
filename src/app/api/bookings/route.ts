@@ -10,15 +10,25 @@ const crearReservaSchema = z.object({
   classSessionId: z.string(),
 });
 
-// Devuelve las reservas del usuario logueado (para pintar "Mis clases")
-export async function GET() {
+// Devuelve las reservas del usuario logueado (para pintar "Mis clases").
+// ?estado=activas -> solo CONFIRMED/WAITLISTED (lo único que la pantalla
+// de reservas necesita para pintar el calendario). Sin este parámetro se
+// mantiene el comportamiento de siempre (historial completo, por si algún
+// otro sitio llega a necesitarlo más adelante).
+export async function GET(request: Request) {
   const session = await getServerSession(authOptions);
   if (!session) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
 
+  const { searchParams } = new URL(request.url);
+  const soloActivas = searchParams.get('estado') === 'activas';
+
   const reservas = await prisma.booking.findMany({
-    where: { userId: (session.user as any).id },
+    where: {
+      userId: (session.user as any).id,
+      ...(soloActivas ? { status: { in: ['CONFIRMED', 'WAITLISTED'] } } : {}),
+    },
     include: { classSession: true },
   });
 
