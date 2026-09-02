@@ -77,6 +77,10 @@ export async function POST(request: Request) {
         role: 'USER',
         createdByAdmin: true,
         passwordHash: null, // sin acceso todavía
+        // Lo da de alta el admin directamente: no necesita confirmar el
+        // email como en el registro público (ahí es donde nos protegemos
+        // de bots, no aquí).
+        emailVerified: new Date(),
       },
     });
 
