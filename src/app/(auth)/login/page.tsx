@@ -1,24 +1,58 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { signIn, getSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faDumbbell, faEnvelope, faLock, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
+import {
+  faDumbbell,
+  faEnvelope,
+  faLock,
+  faTriangleExclamation,
+  faCircleCheck,
+  faEye,
+  faEyeSlash,
+} from '@fortawesome/free-solid-svg-icons';
 import { tapScale } from '@/lib/motion';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [avisoConfirmacion, setAvisoConfirmacion] = useState('');
   const [cargando, setCargando] = useState(false);
+  const [mostrarPassword, setMostrarPassword] = useState(false);
+
+  // Estado del botón "reenviar correo de confirmación", que solo aparece
+  // cuando el login falla concretamente por email sin confirmar.
+  const [mostrarReenviar, setMostrarReenviar] = useState(false);
+  const [reenviando, setReenviando] = useState(false);
+  const [reenviado, setReenviado] = useState(false);
 
   const router = useRouter();
+
+  // Al volver del enlace del email (GET /api/auth/verify), esa ruta nos
+  // redirige aquí con ?verificado=ok o ?verificado=error. Lo leemos con
+  // window.location en vez de useSearchParams para no forzar un boundary
+  // de Suspense en una página que, por lo demás, es puramente de cliente.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const verificado = params.get('verificado');
+    if (verificado === 'ok') {
+      setAvisoConfirmacion('¡Cuenta confirmada! Ya puedes iniciar sesión.');
+    } else if (verificado === 'error') {
+      setAvisoConfirmacion(
+        'El enlace de confirmación no es válido o ha caducado. Inicia sesión y te ofreceremos reenviarlo.'
+      );
+    }
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
+    setMostrarReenviar(false);
+    setReenviado(false);
     setCargando(true);
 
     const resultado = await signIn('credentials', {
@@ -30,7 +64,12 @@ export default function LoginPage() {
     setCargando(false);
 
     if (resultado?.error) {
-      setError('Email o contraseña incorrectos');
+      if (resultado.error === 'EMAIL_NO_VERIFICADO') {
+        setError('Todavía no has confirmado tu cuenta. Revisa tu correo.');
+        setMostrarReenviar(true);
+      } else {
+        setError('Email o contraseña incorrectos');
+      }
       return;
     }
 
@@ -42,6 +81,21 @@ export default function LoginPage() {
       router.push('/inicio');
     }
     router.refresh();
+  }
+
+  async function handleReenviar() {
+    setReenviando(true);
+    try {
+      await fetch('/api/auth/resend-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      setReenviado(true);
+      setMostrarReenviar(false);
+    } finally {
+      setReenviando(false);
+    }
   }
 
   return (
@@ -66,15 +120,43 @@ export default function LoginPage() {
           <h1 className="text-2xl font-extrabold text-white">Iniciar sesión</h1>
         </div>
 
-        {error && (
+        {avisoConfirmacion && (
           <motion.p
             initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-danger text-sm bg-dangersoft border border-danger/30 px-3 py-2 rounded-xl flex items-center gap-2"
+            className="text-accent text-sm bg-accent/10 border border-accent/30 px-3 py-2 rounded-xl flex items-center gap-2"
           >
-            <FontAwesomeIcon icon={faTriangleExclamation} className="w-3.5 h-3.5 shrink-0" />
-            {error}
+            <FontAwesomeIcon icon={faCircleCheck} className="w-3.5 h-3.5 shrink-0" />
+            {avisoConfirmacion}
           </motion.p>
+        )}
+
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-danger text-sm bg-dangersoft border border-danger/30 px-3 py-2 rounded-xl space-y-2"
+          >
+            <p className="flex items-center gap-2">
+              <FontAwesomeIcon icon={faTriangleExclamation} className="w-3.5 h-3.5 shrink-0" />
+              {error}
+            </p>
+            {mostrarReenviar && (
+              <button
+                type="button"
+                onClick={handleReenviar}
+                disabled={reenviando}
+                className="text-xs font-semibold text-danger underline underline-offset-2 disabled:opacity-50"
+              >
+                {reenviando ? 'Enviando...' : 'Reenviar correo de confirmación'}
+              </button>
+            )}
+            {reenviado && (
+              <p className="text-xs text-gray-300">
+                Si la cuenta está pendiente, te hemos enviado un nuevo enlace. Revisa tu correo.
+              </p>
+            )}
+          </motion.div>
         )}
 
         <div>
@@ -97,13 +179,22 @@ export default function LoginPage() {
           <div className="relative">
             <FontAwesomeIcon icon={faLock} className="absolute left-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600" />
             <input
-              type="password"
+              type={mostrarPassword ? 'text' : 'password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full bg-page border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-white placeholder:text-gray-600 focus:outline-none focus:border-accent/60 focus:ring-2 focus:ring-accent/20 transition"
+              className="w-full bg-page border border-white/10 rounded-xl pl-10 pr-10 py-2.5 text-white placeholder:text-gray-600 focus:outline-none focus:border-accent/60 focus:ring-2 focus:ring-accent/20 transition"
               placeholder="••••••••"
             />
+            <button
+              type="button"
+              onClick={() => setMostrarPassword((v) => !v)}
+              tabIndex={-1}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-400 transition"
+              aria-label={mostrarPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+            >
+              <FontAwesomeIcon icon={mostrarPassword ? faEyeSlash : faEye} className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
 

@@ -41,6 +41,13 @@ model User {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
+  // Confirmación de email al registrarse (evita altas masivas de bots).
+  // null = cuenta pendiente de confirmar. Los usuarios que da de alta el
+  // admin a mano se marcan verificados en el momento, no pasan por esto.
+  emailVerified            DateTime?
+  verificationToken        String?   @unique
+  verificationTokenExpires DateTime?
+
   profileImageUrl          String?
   cancellationRequested    Boolean   @default(false)
   cancellationRequestedAt  DateTime?
