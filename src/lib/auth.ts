@@ -39,7 +39,15 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        // 3. Devolvemos los datos que queremos que viajen en la sesión
+        // 3. Si aún no ha confirmado el email, no le dejamos entrar. Usamos
+        // un error específico (en vez de "return null") para que el
+        // formulario de login pueda distinguir esto de una contraseña
+        // incorrecta y ofrecer reenviar el correo de confirmación.
+        if (!user.emailVerified) {
+          throw new Error('EMAIL_NO_VERIFICADO');
+        }
+
+        // 4. Devolvemos los datos que queremos que viajen en la sesión
         return {
           id: user.id,
           name: user.name,

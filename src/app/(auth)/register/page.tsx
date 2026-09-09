@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -10,6 +9,9 @@ import {
   faEnvelope,
   faLock,
   faTriangleExclamation,
+  faEnvelopeCircleCheck,
+  faEye,
+  faEyeSlash,
 } from '@fortawesome/free-solid-svg-icons';
 import { tapScale } from '@/lib/motion';
 
@@ -22,8 +24,12 @@ export default function RegisterPage() {
 
   const [error, setError] = useState('');
   const [cargando, setCargando] = useState(false);
+  const [mostrarPassword, setMostrarPassword] = useState(false);
 
-  const router = useRouter();
+  // Cuando el registro sale bien ya no redirigimos directo a /login: nos
+  // quedamos aquí mostrando "revisa tu correo", porque hasta que no confirme
+  // el email no podría entrar de todas formas.
+  const [registrado, setRegistrado] = useState(false);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -48,12 +54,44 @@ export default function RegisterPage() {
         return;
       }
 
-      router.push('/login');
+      setRegistrado(true);
     } catch (err) {
       setError('Error de conexión, inténtalo de nuevo');
     } finally {
       setCargando(false);
     }
+  }
+
+  if (registrado) {
+    return (
+      <main className="relative min-h-screen flex items-center justify-center bg-page bg-gradient-hero px-5 overflow-hidden">
+        <div className="absolute -top-24 -left-24 w-72 h-72 bg-accent/10 rounded-full blur-3xl animate-float" />
+        <div className="absolute -bottom-24 -right-24 w-72 h-72 bg-accent/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '1.5s' }} />
+
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 26 }}
+          className="relative bg-card border border-white/5 shadow-card p-8 rounded-3xl w-full max-w-sm text-center space-y-4"
+        >
+          <div className="w-14 h-14 rounded-2xl bg-gradient-accent flex items-center justify-center mx-auto shadow-glow">
+            <FontAwesomeIcon icon={faEnvelopeCircleCheck} className="w-6 h-6 text-page" />
+          </div>
+          <h1 className="text-xl font-extrabold text-white">Revisa tu correo</h1>
+          <p className="text-sm text-gray-400 leading-relaxed">
+            Te hemos enviado un enlace de confirmación a{' '}
+            <span className="text-white font-semibold">{formData.email}</span>. Confírmalo
+            para poder iniciar sesión (caduca en 24h).
+          </p>
+          <a
+            href="/login"
+            className="inline-block text-accent font-semibold hover:underline text-sm"
+          >
+            Ir a iniciar sesión
+          </a>
+        </motion.div>
+      </main>
+    );
   }
 
   return (
@@ -126,15 +164,24 @@ export default function RegisterPage() {
           <div className="relative">
             <FontAwesomeIcon icon={faLock} className="absolute left-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600" />
             <input
-              type="password"
+              type={mostrarPassword ? 'text' : 'password'}
               name="password"
               value={formData.password}
               onChange={handleChange}
               required
               minLength={6}
-              className="w-full bg-page border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-white placeholder:text-gray-600 focus:outline-none focus:border-accent/60 focus:ring-2 focus:ring-accent/20 transition"
+              className="w-full bg-page border border-white/10 rounded-xl pl-10 pr-10 py-2.5 text-white placeholder:text-gray-600 focus:outline-none focus:border-accent/60 focus:ring-2 focus:ring-accent/20 transition"
               placeholder="Mínimo 6 caracteres"
             />
+            <button
+              type="button"
+              onClick={() => setMostrarPassword((v) => !v)}
+              tabIndex={-1}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-400 transition"
+              aria-label={mostrarPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+            >
+              <FontAwesomeIcon icon={mostrarPassword ? faEyeSlash : faEye} className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
 
