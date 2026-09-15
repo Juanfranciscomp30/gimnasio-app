@@ -24,6 +24,10 @@ const DEMO_USER = { email: 'usuario@demo.com', password: 'Demo1234' };
 
 const PRECIOS = { ONE_DAY: 25, TWO_DAYS: 40, THREE_DAYS: 55 };
 
+// Máximo de días/clases por semana según la tarifa contratada — tiene que
+// coincidir con la lógica real de la app (nunca reservar por encima de esto).
+const LIMITE_SEMANAL = { ONE_DAY: 1, TWO_DAYS: 2, THREE_DAYS: 3 };
+
 function aLasHoras(diasDesdeHoy, horas, minutos = 0) {
   const fecha = new Date();
   fecha.setHours(0, 0, 0, 0);
@@ -34,6 +38,26 @@ function aLasHoras(diasDesdeHoy, horas, minutos = 0) {
 
 function finDeMes(fecha) {
   return new Date(fecha.getFullYear(), fecha.getMonth() + 1, 0, 23, 59, 59);
+}
+
+// Lunes (00:00) de la semana a la que pertenece una fecha — lo usamos como
+// clave para agrupar las clases por semana.
+function inicioSemana(fecha) {
+  const d = new Date(fecha);
+  const diaSemana = d.getDay(); // 0 domingo ... 6 sábado
+  const diferencia = (diaSemana === 0 ? -6 : 1) - diaSemana;
+  d.setDate(d.getDate() + diferencia);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+function mezclar(array) {
+  const copia = [...array];
+  for (let i = copia.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copia[i], copia[j]] = [copia[j], copia[i]];
+  }
+  return copia;
 }
 
 async function main() {
@@ -123,36 +147,57 @@ async function main() {
     }
   }
 
-  // --- Reservas: repartimos usuarios en las clases de los próximos 10 días
-  const clasesFuturas = clases.filter((c) => c.date > new Date());
+  // --- Reservas: cada usuario reserva como máximo los días/semana que le
+  // permite su tarifa (LIMITE_SEMANAL), nunca más. Agrupamos las clases
+  // futuras por semana y, dentro de cada semana, por día (cada día tiene
+  // sesión de mañana y de tarde) para poder elegir días distintos.
+  const clasesFuturas = clases
+    .filter((c) => c.date > new Date())
+    .sort((a, b) => a.date - b.date);
+
+  const semanas = new Map(); // inicioSemana -> Map(díaISO -> [clases del día])
+  for (const clase of clasesFuturas) {
+    const claveSemana = inicioSemana(clase.date);
+    if (!semanas.has(claveSemana)) semanas.set(claveSemana, new Map());
+    const porDia = semanas.get(claveSemana);
+    const claveDia = new Date(clase.date).toDateString();
+    if (!porDia.has(claveDia)) porDia.set(claveDia, []);
+    porDia.get(claveDia).push(clase);
+  }
+
+  // Plazas ya ocupadas (CONFIRMED) por clase, para respetar el aforo (4).
+  const ocupacionPorClase = new Map(clasesFuturas.map((c) => [c.id, 0]));
+
   let contadorReservas = 0;
+  let contadorEspera = 0;
 
-  for (let i = 0; i < clasesFuturas.length; i++) {
-    const clase = clasesFuturas[i];
-    // Ocupación variable: algunas casi vacías, alguna llena a tope.
-    const ocupacion = i % 5 === 0 ? 4 : i % 3 === 0 ? 2 : 1;
-    const participantes = todosLosUsuarios.slice(0, ocupacion);
+  for (const usuario of todosLosUsuarios) {
+    const limite = LIMITE_SEMANAL[usuario.weeklyPlan] ?? 1;
 
-    for (const participante of participantes) {
-      await prisma.booking.create({
-        data: {
-          userId: participante.id,
-          classSessionId: clase.id,
-          status: 'CONFIRMED',
-        },
-      });
-      contadorReservas++;
-    }
+    for (const [, clasesPorDia] of semanas) {
+      const diasDisponibles = mezclar([...clasesPorDia.keys()]);
+      // Nunca más días reservados que los que permite su tarifa esa semana.
+      const diasAReservar = diasDisponibles.slice(0, limite);
 
-    if (i === 2) {
-      // Una clase llena + alguien en lista de espera, para enseñar esa función.
-      await prisma.booking.create({
-        data: {
-          userId: otrosUsuarios[otrosUsuarios.length - 1].id,
-          classSessionId: clase.id,
-          status: 'WAITLISTED',
-        },
-      });
+      for (const dia of diasAReservar) {
+        const opciones = clasesPorDia.get(dia); // [clase 8:00, clase 18:00]
+        // La tarde suele llenarse antes que la mañana en un gimnasio real.
+        const clase = Math.random() < 0.7 ? opciones[opciones.length - 1] : opciones[0];
+
+        const ocupadas = ocupacionPorClase.get(clase.id);
+        const estado = ocupadas < clase.capacity ? 'CONFIRMED' : 'WAITLISTED';
+
+        await prisma.booking.create({
+          data: { userId: usuario.id, classSessionId: clase.id, status: estado },
+        });
+
+        if (estado === 'CONFIRMED') {
+          ocupacionPorClase.set(clase.id, ocupadas + 1);
+          contadorReservas++;
+        } else {
+          contadorEspera++;
+        }
+      }
     }
   }
 
@@ -188,7 +233,10 @@ async function main() {
     ],
   });
 
-  console.log('Listo. Usuarios:', todosLosUsuarios.length + 1, '(+admin) — Clases:', clases.length, '— Reservas:', contadorReservas);
+  console.log(
+    'Listo. Usuarios:', todosLosUsuarios.length + 1, '(+admin) — Clases:', clases.length,
+    '— Reservas confirmadas:', contadorReservas, '— En lista de espera:', contadorEspera
+  );
   console.log(`Admin demo -> ${DEMO_ADMIN.email} / ${DEMO_ADMIN.password}`);
   console.log(`Usuario demo -> ${DEMO_USER.email} / ${DEMO_USER.password}`);
 }
