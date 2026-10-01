@@ -54,6 +54,13 @@ export default function RegisterPage() {
         return;
       }
 
+      // Si la verificación de email está desactivada, la cuenta ya está
+      // lista: vamos directos al login.
+      if (data.verificado) {
+        window.location.href = '/login?registrado=1';
+        return;
+      }
+
       setRegistrado(true);
     } catch (err) {
       setError('Error de conexión, inténtalo de nuevo');

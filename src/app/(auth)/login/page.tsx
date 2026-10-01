@@ -39,7 +39,9 @@ export default function LoginPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const verificado = params.get('verificado');
-    if (verificado === 'ok') {
+    if (params.get('registrado') === '1') {
+      setAvisoConfirmacion('¡Cuenta creada! Ya puedes iniciar sesión.');
+    } else if (verificado === 'ok') {
       setAvisoConfirmacion('¡Cuenta confirmada! Ya puedes iniciar sesión.');
     } else if (verificado === 'error') {
       setAvisoConfirmacion(
