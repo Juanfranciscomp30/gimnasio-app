@@ -1,12 +1,17 @@
 import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faDumbbell, faCalendarCheck, faBolt, faChartLine } from '@fortawesome/free-solid-svg-icons';
+import { faDumbbell, faCalendarCheck, faBolt, faChartLine, faWandMagicSparkles } from '@fortawesome/free-solid-svg-icons';
 
 const VENTAJAS = [
   {
     icon: faCalendarCheck,
     titulo: 'Reserva en segundos',
     descripcion: 'Elige día y hora, y listo. Si la clase está completa, entras en lista de espera automática.',
+  },
+  {
+    icon: faWandMagicSparkles,
+    titulo: 'Coach con IA',
+    descripcion: 'Plan de entreno semanal y sugerencias de comida personalizadas según tu objetivo y tu tarifa.',
   },
   {
     icon: faBolt,
@@ -63,7 +68,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {VENTAJAS.map((v) => (
             <div key={v.titulo} className="bg-card border border-white/5 rounded-2xl p-5">
               <div className="w-9 h-9 rounded-xl bg-accentsoft text-accent flex items-center justify-center mb-3">

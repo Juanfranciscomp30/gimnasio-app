@@ -6,6 +6,10 @@ import { prisma } from '@/lib/prisma';
 import { detectarCandidatosReactivacion, redactarMensajesReactivacion } from '@/lib/ai/admin';
 import { IaNoConfiguradaError, iaDisponible } from '@/lib/ai/client';
 
+// Tope de redacciones con IA por día. En la demo pública cualquiera puede
+// entrar como admin, así que esto protege la factura de la API.
+const MAX_REDACCIONES_DIA = Number(process.env.AI_ADMIN_DAILY_LIMIT ?? 20);
+
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
   if (!session || (session.user as any).role !== 'ADMIN') return null;
@@ -62,8 +66,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ mensajes: [] });
   }
 
+  const redaccionesHoy = await prisma.aiReport.count({
+    where: { kind: 'REACTIVACION', createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
+  });
+  if (redaccionesHoy >= MAX_REDACCIONES_DIA) {
+    return NextResponse.json(
+      { error: 'Se ha alcanzado el límite diario de redacciones con IA. Vuelve a intentarlo mañana.' },
+      { status: 429 }
+    );
+  }
+
   try {
     const mensajes = await redactarMensajesReactivacion(candidatos);
+    // Guardamos cada redacción: sirve de historial y para contar el tope diario
+    await prisma.aiReport.create({
+      data: { kind: 'REACTIVACION', content: { mensajes } },
+    });
     return NextResponse.json({ mensajes });
   } catch (error) {
     if (error instanceof IaNoConfiguradaError) {
