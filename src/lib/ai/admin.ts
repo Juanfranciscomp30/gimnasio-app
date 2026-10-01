@@ -6,7 +6,8 @@ import { LIMITE_POR_PLAN } from '@/lib/booking-logic';
 const DIA_MS = 24 * 60 * 60 * 1000;
 
 const SYSTEM_ADMIN = `Ayudas al dueño de un gimnasio pequeño de clases reducidas (máximo 4 personas por clase, tarifas de 1, 2 o 3 días por semana).
-Escribes en español de España, con tono cercano y práctico. Eres concreto: cifras, días y horas reales, nada de frases genéricas.`;
+Escribes en español de España, con tono profesional, cercano y constructivo, como un buen consultor: sin dramatismos ni alarmismo.
+Eres concreto: cifras, días y horas reales, nada de frases genéricas. Revisa la ortografía antes de responder.`;
 
 // ═════════════════════════════════════════════════════════════════════
 // 1) REACTIVACIÓN DE SOCIOS
@@ -156,7 +157,9 @@ async function datosSemana() {
   const hace28 = new Date(ahora.getTime() - 28 * DIA_MS);
   const en7 = new Date(ahora.getTime() + 7 * DIA_MS);
   const hace7 = new Date(ahora.getTime() - 7 * DIA_MS);
-  const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
+  // Ventana móvil de 30 días (y no "mes natural"): el día 1 de cada mes los
+  // ingresos del mes serían 0 € y la IA sacaría conclusiones absurdas.
+  const hace30 = new Date(ahora.getTime() - 30 * DIA_MS);
 
   const [clases, ingresos, gastos, socios, pagos] = await Promise.all([
     prisma.classSession.findMany({
@@ -167,8 +170,8 @@ async function datosSemana() {
         bookings: { select: { status: true } },
       },
     }),
-    prisma.payment.aggregate({ _sum: { amount: true }, where: { paidAt: { gte: inicioMes } } }),
-    prisma.expense.aggregate({ _sum: { amount: true }, where: { date: { gte: inicioMes } } }),
+    prisma.payment.aggregate({ _sum: { amount: true }, where: { paidAt: { gte: hace30 } } }),
+    prisma.expense.aggregate({ _sum: { amount: true }, where: { date: { gte: hace30 } } }),
     prisma.user.count({ where: { role: 'USER' } }),
     prisma.payment.findMany({
       orderBy: { paidAt: 'desc' },
@@ -212,8 +215,8 @@ async function datosSemana() {
 
   return `Socios totales: ${socios}
 Cuotas vencidas: ${vencidas}
-Ingresos este mes: ${ingresos._sum.amount ?? 0} €
-Gastos este mes: ${gastos._sum.amount ?? 0} €
+Ingresos de los últimos 30 días: ${ingresos._sum.amount ?? 0} €
+Gastos de los últimos 30 días: ${gastos._sum.amount ?? 0} €
 Cancelaciones tardías en los últimos 7 días: ${tardiasSemana}
 
 Ocupación media por franja (últimas 4 semanas):
@@ -257,7 +260,8 @@ export async function generarResumenSemanal(): Promise<ResumenIA> {
       required: ['titular', 'puntos', 'acciones'],
     },
     prompt: `Estos son los datos reales del gimnasio. Analízalos y dime qué está pasando y qué haría esta semana.
-No inventes datos que no estén aquí.
+No inventes datos que no estén aquí. Es un gimnasio pequeño a propósito: pocos socios es lo normal, no un problema.
+Empieza por lo que funciona bien y luego las oportunidades de mejora.
 
 ${datos}`,
   });
