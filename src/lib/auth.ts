@@ -2,6 +2,7 @@ import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
+import { verificacionEmailActiva } from '@/lib/email';
 
 export const authOptions: NextAuthOptions = {
   session: {
@@ -44,7 +45,15 @@ export const authOptions: NextAuthOptions = {
         // formulario de login pueda distinguir esto de una contraseña
         // incorrecta y ofrecer reenviar el correo de confirmación.
         if (!user.emailVerified) {
-          throw new Error('EMAIL_NO_VERIFICADO');
+          if (verificacionEmailActiva()) {
+            throw new Error('EMAIL_NO_VERIFICADO');
+          }
+          // Verificación desactivada: las cuentas que se quedaron pendientes
+          // de antes se confirman solas al iniciar sesión.
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { emailVerified: new Date(), verificationToken: null, verificationTokenExpires: null },
+          });
         }
 
         // 4. Devolvemos los datos que queremos que viajen en la sesión
