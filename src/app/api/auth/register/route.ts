@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { enviarEmailVerificacion } from '@/lib/email';
+import { enviarEmailVerificacion, verificacionEmailActiva } from '@/lib/email';
 
 // Las cuentas sin confirmar caducan a las 24h: pasado ese tiempo, si alguien
 // vuelve a registrarse con ese mismo email, se descarta la cuenta vieja y se
@@ -55,6 +55,29 @@ export async function POST(request: Request) {
     // Encriptamos la contraseña. El "10" es el "coste" del hash:
     // cuanto más alto, más seguro pero más lento. 10 es un estándar razonable.
     const passwordHash = await bcrypt.hash(datos.password, 10);
+
+    // Sin verificación: la cuenta nace confirmada y puede entrar ya.
+    if (!verificacionEmailActiva()) {
+      const usuario = await prisma.user.create({
+        data: {
+          name: datos.name,
+          email: datos.email,
+          passwordHash,
+          role: 'USER',
+          emailVerified: new Date(),
+        },
+      });
+      return NextResponse.json(
+        {
+          id: usuario.id,
+          name: usuario.name,
+          email: usuario.email,
+          verificado: true,
+          mensaje: 'Cuenta creada. Ya puedes iniciar sesión.',
+        },
+        { status: 201 }
+      );
+    }
 
     const token = crypto.randomBytes(32).toString('hex');
     const tokenExpires = new Date(Date.now() + HORAS_EXPIRACION_TOKEN * 60 * 60 * 1000);

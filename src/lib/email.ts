@@ -1,5 +1,16 @@
 import { Resend } from 'resend';
 
+/**
+ * Interruptor de la confirmación de email en el registro.
+ * Desactivada por defecto: con el remitente de pruebas de Resend los correos
+ * solo llegan a la cuenta del dueño, así que bloqueaba crear usuarios.
+ * Para reactivarla (cuando haya dominio propio verificado en Resend):
+ *   EMAIL_VERIFICATION_ENABLED=true   en el .env y en Vercel.
+ */
+export function verificacionEmailActiva(): boolean {
+  return process.env.EMAIL_VERIFICATION_ENABLED === 'true';
+}
+
 // El cliente se crea "perezosamente" (no en cuanto se importa el módulo,
 // sino la primera vez que hace falta enviar un correo). Si se creara arriba
 // del todo, un RESEND_API_KEY vacío o mal puesto en el .env tira todo el
