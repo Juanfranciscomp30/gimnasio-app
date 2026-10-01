@@ -14,6 +14,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { staggerContainer, fadeUpItem, hoverLift, tapScale } from '@/lib/motion';
 import Skeleton from '@/components/ui/Skeleton';
+import CuestionarioFitness from '@/components/ia/CuestionarioFitness';
 
 type Perfil = {
   id: string;
@@ -263,6 +264,11 @@ export default function PerfilPage() {
               <p className="text-sm font-semibold">{ETIQUETA_PLAN[perfil.weeklyPlan]}</p>
             </div>
           </div>
+        </motion.div>
+
+        {/* Cuestionario para el coach IA */}
+        <motion.div variants={fadeUpItem}>
+          <CuestionarioFitness />
         </motion.div>
 
         {/* Baja */}
