@@ -51,6 +51,13 @@ npx prisma migrate dev
 npm run dev
 ```
 
+## Asistente IA (Claude)
+
+- **Socio** (`/inicio` y `/perfil`): rellena un cuestionario (objetivo, nivel, duración, alimentación) y la IA genera su plan de entreno semanal (según su tarifa de 1/2/3 días) y sugerencias de nutrición. Máximo 3 generaciones por tipo y semana.
+- **Admin** (`/admin/ia`): resumen semanal con recomendaciones basadas en ocupación, pagos y gastos, y detección de socios a reactivar con avisos redactados por la IA (el admin los revisa antes de enviarlos como notificación).
+- Variables de entorno: `ANTHROPIC_API_KEY` (obligatoria para activar la IA) y `ANTHROPIC_MODEL` (opcional, por defecto `claude-haiku-4-5`). Sin la API key la app funciona igual y simplemente oculta las funciones de IA.
+- Código en `src/lib/ai/` (cliente, contexto del socio, prompts de coach y admin).
+
 ## Flujo de trabajo en Git
 
 - `main` → siempre estable, es lo que está en producción.

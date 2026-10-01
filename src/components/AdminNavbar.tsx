@@ -11,6 +11,7 @@ import {
   faDumbbell,
   faUsers,
   faCreditCard,
+  faWandMagicSparkles,
 } from '@fortawesome/free-solid-svg-icons';
 import clsx from 'clsx';
 
@@ -19,6 +20,7 @@ const links = [
   { href: '/admin/clases', label: 'Clases', icon: faDumbbell },
   { href: '/admin/usuarios', label: 'Usuarios', icon: faUsers },
   { href: '/admin/pagos', label: 'Pagos', icon: faCreditCard },
+  { href: '/admin/ia', label: 'IA', icon: faWandMagicSparkles },
 ];
 
 export default function AdminNavbar() {

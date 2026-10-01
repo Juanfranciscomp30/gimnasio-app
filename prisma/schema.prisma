@@ -55,6 +55,8 @@ model User {
   bookings      Booking[]
   payments      Payment[]
   notifications Notification[]
+  fitnessProfile FitnessProfile?
+  aiPlans        AiPlan[]
 }
 
 // Una clase concreta en un día y hora, con aforo limitado
@@ -128,4 +130,54 @@ model Notification {
   user User @relation(fields: [userId], references: [id])
 
   @@index([userId, read])
+}
+
+// ─── IA ──────────────────────────────────────────────────────────────
+
+// Cuestionario que rellena el socio en /perfil para que la IA pueda
+// personalizar entrenos y nutrición. Una fila por usuario (1 a 1).
+model FitnessProfile {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  goal              String   // PERDER_GRASA | GANAR_MUSCULO | MEJORAR_FORMA | SALUD_GENERAL
+  level             String   // PRINCIPIANTE | INTERMEDIO | AVANZADO
+  minutesPerSession Int      @default(60)
+  trainsAtHome      Boolean  @default(false) // si quiere rutinas extra para los días que no viene
+  dietPreference    String?  // OMNIVORA | VEGETARIANA | VEGANA | SIN_PREFERENCIA
+  limitations       String?  // texto libre opcional (ej: "molestias de rodilla")
+  updatedAt         DateTime @updatedAt
+  createdAt         DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum AiPlanKind {
+  TRAINING
+  NUTRITION
+}
+
+// Plan generado por la IA para un socio. Guardamos el histórico (no se
+// sobrescribe) y la pantalla muestra siempre el más reciente. También
+// sirve para limitar cuántas veces se genera por semana (control de coste).
+model AiPlan {
+  id        String     @id @default(cuid())
+  userId    String
+  kind      AiPlanKind
+  content   Json
+  createdAt DateTime   @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, kind, createdAt])
+}
+
+// Informe generado por la IA para el admin (resumen semanal). Se cachea
+// unas horas para no llamar a la API cada vez que se abre la página.
+model AiReport {
+  id        String   @id @default(cuid())
+  kind      String   // RESUMEN_SEMANAL
+  content   Json
+  createdAt DateTime @default(now())
+
+  @@index([kind, createdAt])
 }

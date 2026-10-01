@@ -20,6 +20,7 @@ import { HORAS_LIMITE_CANCELACION } from '@/lib/booking-logic';
 import { staggerContainer, fadeUpItem, hoverLift, tapScale } from '@/lib/motion';
 import AnimatedNumber from '@/components/ui/AnimatedNumber';
 import Skeleton from '@/components/ui/Skeleton';
+import CoachIA from '@/components/ia/CoachIA';
 
 type ProximaClase = {
   bookingId: string;
@@ -326,6 +327,11 @@ export default function InicioPage() {
               ))}
             </motion.div>
           )}
+
+          {/* Coach IA: plan de entreno y nutrición de la semana */}
+          <motion.div variants={fadeUpItem}>
+            <CoachIA />
+          </motion.div>
         </div>
 
         <div className="lg:col-span-2">
