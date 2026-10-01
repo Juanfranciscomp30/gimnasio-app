@@ -175,7 +175,7 @@ model AiPlan {
 // unas horas para no llamar a la API cada vez que se abre la página.
 model AiReport {
   id        String   @id @default(cuid())
-  kind      String   // RESUMEN_SEMANAL
+  kind      String   // RESUMEN_SEMANAL | REACTIVACION
   content   Json
   createdAt DateTime @default(now())
 

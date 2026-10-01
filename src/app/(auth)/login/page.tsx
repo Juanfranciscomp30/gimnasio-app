@@ -13,8 +13,20 @@ import {
   faCircleCheck,
   faEye,
   faEyeSlash,
+  faUserShield,
+  faUser,
 } from '@fortawesome/free-solid-svg-icons';
 import { tapScale } from '@/lib/motion';
+
+// Modo demo (portfolio): muestra botones para entrar con un clic con las
+// cuentas de prueba del seed. Solo se activa con NEXT_PUBLIC_DEMO_MODE=true,
+// así que en el despliegue real del gimnasio no aparece.
+const MODO_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
+const CUENTAS_DEMO = [
+  { etiqueta: 'Socio', descripcion: 'Reservas y coach IA', email: 'usuario@demo.com', icono: faUser },
+  { etiqueta: 'Admin', descripcion: 'Panel y herramientas IA', email: 'admin@demo.com', icono: faUserShield },
+];
+const PASSWORD_DEMO = 'Demo1234';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -52,6 +64,10 @@ export default function LoginPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    await entrar(email, password);
+  }
+
+  async function entrar(email: string, password: string) {
     setError('');
     setMostrarReenviar(false);
     setReenviado(false);
@@ -209,6 +225,32 @@ export default function LoginPage() {
         >
           {cargando ? 'Entrando...' : 'Entrar'}
         </motion.button>
+
+        {MODO_DEMO && (
+          <div className="pt-4 border-t border-white/5">
+            <p className="text-[11px] font-bold uppercase tracking-widest text-gray-500 text-center mb-3">
+              Probar la demo sin registrarte
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {CUENTAS_DEMO.map((c) => (
+                <motion.button
+                  key={c.email}
+                  type="button"
+                  whileTap={tapScale}
+                  disabled={cargando}
+                  onClick={() => entrar(c.email, PASSWORD_DEMO)}
+                  className="bg-white/5 hover:bg-accentsoft border border-white/10 hover:border-accent/30 rounded-xl px-3 py-2.5 text-left transition-colors disabled:opacity-50"
+                >
+                  <span className="flex items-center gap-1.5 text-sm font-semibold text-white">
+                    <FontAwesomeIcon icon={c.icono} className="w-3 h-3 text-accent" />
+                    {c.etiqueta}
+                  </span>
+                  <span className="block text-[11px] text-gray-500">{c.descripcion}</span>
+                </motion.button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <p className="text-sm text-center text-gray-500">
           ¿No tienes cuenta?{' '}

@@ -57,6 +57,14 @@ npm run dev
 - **Admin** (`/admin/ia`): resumen semanal con recomendaciones basadas en ocupación, pagos y gastos, y detección de socios a reactivar con avisos redactados por la IA (el admin los revisa antes de enviarlos como notificación).
 - Variables de entorno: `ANTHROPIC_API_KEY` (obligatoria para activar la IA) y `ANTHROPIC_MODEL` (opcional, por defecto `claude-haiku-4-5`). Sin la API key la app funciona igual y simplemente oculta las funciones de IA.
 - Código en `src/lib/ai/` (cliente, contexto del socio, prompts de coach y admin).
+- Control de coste: 3 planes por tipo y semana por socio, resumen del admin cacheado 12 h y tope diario de redacciones de reactivación (`AI_ADMIN_DAILY_LIMIT`, por defecto 20).
+
+## Demo pública (portfolio)
+
+- `NEXT_PUBLIC_DEMO_MODE=true` muestra en `/login` botones para entrar con un clic como **Socio** o **Admin** de demo (sin registrarse).
+- `npm run seed:demo` (apuntando a la BD de la demo) crea 6 semanas de historial y socios con situaciones reales para lucir la IA: uno que ha dejado de venir, cuota vencida, cancelaciones tardías y cuota a punto de vencer. El socio demo trae perfil fitness y planes de IA de ejemplo.
+- Credenciales: `usuario@demo.com` / `admin@demo.com`, contraseña `Demo1234`.
+- `EMAIL_VERIFICATION_ENABLED=true` reactiva la confirmación por email (desactivada por defecto).
 
 ## Flujo de trabajo en Git
 
