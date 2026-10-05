@@ -1,81 +1,148 @@
-# Gimnasio App
+# Gimnasio App · reservas de clases con asistente IA (Claude)
 
-Aplicación web/PWA para la gestión de un gimnasio: reservas de clases, pagos y usuarios.
+PWA para un gimnasio pequeño de clases reducidas (máx. 4 personas): los socios reservan y cancelan clases, el administrador gestiona clases, pagos y usuarios, y **un asistente con IA (Claude API)** hace de entrenador para el socio y de analista para el dueño.
 
-## Stack
-- **Next.js 14** (App Router) + TypeScript
-- **Tailwind CSS**
+**[▶ Probar la demo](https://gimnasio-app-livid.vercel.app)** — entra con un clic como *Socio* o *Admin*, sin registrarte.
+
+![Asistente IA funcionando: el socio genera su plan de entreno y nutrición, y el admin ve el resumen semanal y los avisos de reactivación redactados por la IA](docs/asistente-ia.gif)
+
+`Next.js 14` · `TypeScript` · `Prisma` · `PostgreSQL (Supabase)` · `NextAuth` · `Tailwind` · `Claude API (@anthropic-ai/sdk)` · `zod` · `Vercel`
+
+---
+
+## Asistente IA
+
+| Para quién | Qué hace |
+|---|---|
+| **Socio** (`/inicio`, `/perfil`) | Rellena un mini cuestionario (objetivo, nivel, duración, alimentación) y recibe un **plan de entreno semanal** ajustado a su tarifa (1, 2 o 3 días) y a su asistencia real, más **sugerencias de nutrición**. |
+| **Admin** (`/admin/ia`) | **Resumen semanal** con lo que va bien, lo que preocupa y 3 acciones concretas, a partir de ocupación, pagos y gastos. |
+| **Admin** (`/admin/ia`) | **Socios a reactivar** (no vienen, cuota vencida, cancelaciones tardías): la IA redacta un aviso personal para cada uno y el admin lo revisa antes de enviarlo. |
+
+### Cómo está montado
+
+```mermaid
+flowchart LR
+    subgraph Navegador
+        UI["Páginas React<br/>/inicio · /perfil · /admin/ia"]
+    end
+
+    subgraph Servidor["Servidor Next.js (Vercel)"]
+        API["Route handlers<br/>/api/ai/plan · /api/ai/profile<br/>/api/ai/admin/resumen · /api/ai/admin/reactivacion"]
+        GUARD["Sesión NextAuth + rol<br/>límites de uso y caché"]
+        CTX["contexto.ts / admin.ts<br/>datos mínimos y cifras ya calculadas"]
+        CLIENT["client.ts · generarJSON()<br/>tool_choice + JSON Schema<br/>validación con zod"]
+    end
+
+    DB[("PostgreSQL · Prisma<br/>reservas, perfil fitness,<br/>planes y informes IA")]
+    CLAUDE["Claude API<br/>claude-haiku-4-5"]
+
+    UI -- "fetch (sin API key)" --> API
+    API --> GUARD
+    GUARD --> CTX
+    CTX -- "lee" --> DB
+    CTX --> CLIENT
+    CLIENT -- "ANTHROPIC_API_KEY<br/>solo en el servidor" --> CLAUDE
+    CLAUDE -- "JSON estructurado" --> CLIENT
+    API -- "guarda plan / informe" --> DB
+    API -- "JSON validado" --> UI
+```
+
+1. La página pide un plan o un resumen a una ruta propia de la app; el navegador nunca habla con Claude.
+2. La ruta comprueba la sesión (y el rol `ADMIN` en las de admin) y los límites de uso.
+3. Se construye el contexto con Prisma: solo lo necesario (nombre de pila, tarifa, asistencia, cuestionario). Las cifras del admin (ocupación, ingresos, gastos) se calculan en código, no las calcula la IA.
+4. `generarJSON()` llama a Claude obligándole a usar una *tool* con JSON Schema y valida la respuesta con zod. Si no cuadra, la ruta devuelve error en lugar de pintar algo roto.
+5. El resultado se guarda en BD (`AiPlan`, `AiReport`) y la interfaz lo pinta como tarjetas, no como texto plano.
+
+Código: [`src/lib/ai/`](src/lib/ai) (cliente, contexto del socio, prompts de coach y admin) y [`src/app/api/ai/`](src/app/api/ai).
+
+### Decisiones técnicas
+
+**¿Por qué Claude?**
+- **Salidas estructuradas fiables.** En vez de pedir "devuélveme JSON" y parsear texto, defino una *tool* con su JSON Schema y fuerzo su uso con `tool_choice`. La API devuelve directamente el objeto, y zod lo valida en mi lado.
+- **Buen español y buen tono** para mensajes que lee un socio real (cercano, sin inventar diagnósticos ni suplementos: está prohibido en el *system prompt*).
+- **Haiku 4.5 es rápido y barato**, suficiente para planes y avisos cortos de un gimnasio pequeño. El modelo se cambia con `ANTHROPIC_MODEL` sin tocar código.
+- **Un único punto de contacto** (`client.ts`): cambiar de modelo o de proveedor afecta a un archivo, no a toda la app.
+
+**¿Cómo protejo la API key?**
+- `ANTHROPIC_API_KEY` solo se lee en `src/lib/ai/client.ts`, que solo se importa desde *route handlers* del servidor. No lleva prefijo `NEXT_PUBLIC_`, así que Next.js nunca la mete en el JavaScript del navegador.
+- En local vive en `.env` (en `.gitignore`); en producción es una variable **Secret** de Vercel.
+- Las rutas de IA exigen sesión de NextAuth, y las de admin además rol `ADMIN`: el middleware protege las páginas `/admin/*` y cada ruta de API vuelve a comprobar la sesión y el rol por su cuenta.
+- **Mínimo dato posible a la IA:** nunca se envían emails, pagos ni datos que no hagan falta para personalizar.
+- Si falta la key, la app funciona igual y simplemente oculta las funciones de IA.
+
+**¿Cómo controlo el gasto?**
+- **Límites por socio:** 3 generaciones por tipo de plan y semana (la API responde `429` al pasarse).
+- **Caché del resumen del admin:** 12 h en BD, y como mínimo 10 min entre refrescos manuales.
+- **Tope diario** de avisos de reactivación: `AI_ADMIN_DAILY_LIMIT` (20 por defecto).
+- **`max_tokens` acotado** en cada llamada (1.500–3.000) y modelo pequeño por defecto.
+- **La IA no hace lo que el código hace gratis:** los candidatos a reactivar se detectan con reglas y las cifras se calculan con Prisma. La IA solo redacta e interpreta, lo que ahorra tokens y evita números inventados.
+
+### Próximos pasos de la IA
+- *Tool use* para que el socio reserve hablando ("apúntame mañana a las 19:00").
+- Respuestas en *streaming*.
+- *Prompt caching* y registro de tokens por función.
+- Batería de 10–15 perfiles de socio de prueba para evaluar cada cambio de prompt.
+
+---
+
+## La app
+
+### Roles
+
+**Administrador**
+- Crea clases (también recurrentes por día de la semana), ve el aforo y quién va a cada una.
+- Gestiona pagos y gastos, y puede dar de alta usuarios manualmente.
+
+**Socio**
+- Reserva y cancela clases dentro de su tarifa.
+- Si cancela con **menos de 3 h de antelación**, pierde ese día (cuenta como usado).
+- Si cancela con **3 h o más**, el hueco se libera para otro socio y no pierde el día.
+
+### Reglas de negocio clave
+- Tarifas de **1, 2 o 3 días/semana**.
+- Reservar ocupa un hueco de aforo (máx. 4); cancelar a tiempo lo libera para futuras reservas.
+- Lógica centralizada en [`src/lib/booking-logic.ts`](src/lib/booking-logic.ts).
+
+### Stack
+- **Next.js 14** (App Router) + TypeScript, **Tailwind CSS**
 - **Prisma** + **PostgreSQL** (Supabase)
-- **NextAuth.js** (roles: admin / usuario)
-- **next-pwa** (instalable en móvil sin tiendas de apps)
-- Despliegue: **Vercel** (app) + **Supabase** (base de datos)
+- **NextAuth.js** (JWT, roles admin / socio)
+- **Claude API** (`@anthropic-ai/sdk`) + **zod**
+- **next-pwa**: instalable en el móvil sin pasar por las tiendas de apps
+- Despliegue en **Vercel**, con un Cron Job que mantiene despierta la BD gratuita de Supabase
 
-## Roles
-
-### Administrador
-- Gestiona pagos de los usuarios.
-- Ve qué personas hay en cada clase/día.
-- Puede añadir un usuario manualmente.
-
-### Usuario
-- Solo puede añadirse o eliminarse de las clases.
-- Si cancela con **menos de 3h de antelación**, pierde ese día (cuenta como usado).
-- Si cancela con **3h o más de antelación**, el hueco se libera y no pierde el día.
-
-## Reglas de negocio clave
-- Cada usuario tiene una tarifa: **1, 2 o 3 días/semana**.
-- Reservar una clase ocupa un hueco de aforo → menos disponibilidad para el resto.
-- Cancelar a tiempo libera el hueco de aforo para futuras reservas.
-- Ver la lógica centralizada en `src/lib/booking-logic.ts`.
-
-## Estructura del proyecto
+### Estructura
 ```
 src/
   app/
-    (admin)/admin/        -> páginas solo para admin (pagos, usuarios, clases)
-    (user)/mis-clases/    -> páginas solo para usuario (reservar/cancelar)
-    (auth)/                -> login / registro
-    api/                   -> endpoints (auth, bookings, classes, users)
-  components/              -> componentes reutilizables
-  lib/                     -> lógica de negocio y conexión a BD/auth
-  types/                   -> tipos TypeScript compartidos
+    (admin)/admin/   -> panel del admin (clases, usuarios, pagos, IA)
+    (user)/          -> inicio, mis-clases y perfil del socio
+    (auth)/          -> login / registro
+    api/             -> endpoints (auth, bookings, classes, users, ai)
+  components/        -> componentes reutilizables
+  lib/               -> lógica de negocio, auth, Prisma
+    ai/              -> cliente de Claude, contexto y prompts
 prisma/
-  schema.prisma            -> modelo de datos
+  schema.prisma      -> modelo de datos
+  seed-demo.js       -> datos de la demo pública
 ```
 
-## Puesta en marcha (cuando se instale)
+### Puesta en marcha
 ```bash
 npm install
-cp .env.example .env   # rellenar con credenciales reales
+cp .env.example .env   # rellenar con tus credenciales
 npx prisma migrate dev
 npm run dev
 ```
 
-## Asistente IA (Claude)
+Variables de la IA: `ANTHROPIC_API_KEY` (activa la IA), `ANTHROPIC_MODEL` (opcional, por defecto `claude-haiku-4-5`) y `AI_ADMIN_DAILY_LIMIT` (opcional, por defecto 20).
 
-- **Socio** (`/inicio` y `/perfil`): rellena un cuestionario (objetivo, nivel, duración, alimentación) y la IA genera su plan de entreno semanal (según su tarifa de 1/2/3 días) y sugerencias de nutrición. Máximo 3 generaciones por tipo y semana.
-- **Admin** (`/admin/ia`): resumen semanal con recomendaciones basadas en ocupación, pagos y gastos, y detección de socios a reactivar con avisos redactados por la IA (el admin los revisa antes de enviarlos como notificación).
-- Variables de entorno: `ANTHROPIC_API_KEY` (obligatoria para activar la IA) y `ANTHROPIC_MODEL` (opcional, por defecto `claude-haiku-4-5`). Sin la API key la app funciona igual y simplemente oculta las funciones de IA.
-- Código en `src/lib/ai/` (cliente, contexto del socio, prompts de coach y admin).
-- Control de coste: 3 planes por tipo y semana por socio, resumen del admin cacheado 12 h y tope diario de redacciones de reactivación (`AI_ADMIN_DAILY_LIMIT`, por defecto 20).
-
-## Demo pública (portfolio)
-
-- `NEXT_PUBLIC_DEMO_MODE=true` muestra en `/login` botones para entrar con un clic como **Socio** o **Admin** de demo (sin registrarse).
-- `npm run seed:demo` (apuntando a la BD de la demo) crea 6 semanas de historial y socios con situaciones reales para lucir la IA: uno que ha dejado de venir, cuota vencida, cancelaciones tardías y cuota a punto de vencer. El socio demo trae perfil fitness y planes de IA de ejemplo.
+### Demo pública
+- `NEXT_PUBLIC_DEMO_MODE=true` muestra en `/login` los botones para entrar como **Socio** o **Admin** de demo.
+- `npm run seed:demo` (apuntando a la BD de la demo) crea 6 semanas de historial y socios con situaciones reales: uno que ha dejado de venir, cuota vencida, cancelaciones tardías y cuota a punto de vencer.
 - Credenciales: `usuario@demo.com` / `admin@demo.com`, contraseña `Demo1234`.
 - `EMAIL_VERIFICATION_ENABLED=true` reactiva la confirmación por email (desactivada por defecto).
 
-## Flujo de trabajo en Git
-
-- `main` → siempre estable, es lo que está en producción.
-- `feature/nombre-de-la-tarea` → una rama por cada funcionalidad.
-- Al terminar una feature: Pull Request contra `main`, revisión, y merge.
-- Vercel despliega automáticamente cada actualización de `main`.
-
-Ramas previstas a corto plazo:
-- `feature/auth-roles` — login y roles admin/usuario
-- `feature/gestion-usuarios` — alta manual y tarifas
-- `feature/reservas-usuario` — apuntarse/cancelar clases
-- `feature/panel-admin-clases` — vista de aforo y asistentes
-- `feature/pagos` — registro de pagos por el admin
+### Flujo de trabajo en Git
+- `main` siempre estable: es lo que está en producción y Vercel lo despliega solo.
+- Una rama por funcionalidad (`feature/...`, `fix/...`, `docs/...`) y Pull Request contra `main`.
