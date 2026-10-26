@@ -12,12 +12,14 @@ import {
   faHouse,
   faDumbbell,
   faUser,
+  faClipboardList,
 } from '@fortawesome/free-solid-svg-icons';
 import clsx from 'clsx';
 
 const LINKS = [
   { href: '/inicio', label: 'Inicio', icon: faHouse },
   { href: '/mis-clases', label: 'Mis clases', icon: faDumbbell },
+  { href: '/mi-tabla', label: 'Mi tabla', icon: faClipboardList },
   { href: '/perfil', label: 'Perfil', icon: faUser },
 ];
 
