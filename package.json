@@ -11,7 +11,8 @@
     "vercel-build": "prisma generate && prisma migrate deploy && next build",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "seed:demo": "node prisma/seed-demo.js"
+    "seed:demo": "node prisma/seed-demo.js",
+    "tablas:cargar": "node prisma/cargar-tablas.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",

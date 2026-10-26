@@ -32,6 +32,7 @@ export async function GET() {
       email: true,
       role: true,
       weeklyPlan: true,
+      routineVariant: true,
       createdByAdmin: true,
       passwordHash: true, // lo pedimos solo para saber si es null, NUNCA se lo mandamos al frontend
       createdAt: true,

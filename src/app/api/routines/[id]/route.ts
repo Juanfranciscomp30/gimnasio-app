@@ -6,8 +6,10 @@ import { DIAS_POR_PLAN, INCLUDE_TABLA, requireAdmin } from '@/lib/tablas';
 
 const ejercicioTablaSchema = z.object({
   exerciseId: z.string().min(1),
+  // Mismo número de bloque = se hacen seguidos (superserie)
+  block: z.number().int().min(0).max(100),
   sets: z.number().int().min(1, 'Mínimo 1 serie').max(20),
-  reps: z.string().trim().min(1, 'Indica las repeticiones').max(20),
+  reps: z.string().trim().max(20).nullable().optional(),
   restSeconds: z.number().int().min(0).max(900).nullable().optional(),
   notes: z.string().trim().max(200).nullable().optional(),
 });
@@ -31,8 +33,9 @@ function filasEjercicios(ejercicios: EjercicioTabla[]) {
   return ejercicios.map((e, i) => ({
     exerciseId: e.exerciseId,
     order: i,
+    block: e.block,
     sets: e.sets,
-    reps: e.reps,
+    reps: e.reps || null,
     restSeconds: e.restSeconds ?? null,
     notes: e.notes || null,
   }));

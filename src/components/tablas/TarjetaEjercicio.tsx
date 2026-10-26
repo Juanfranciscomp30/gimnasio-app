@@ -17,8 +17,8 @@ import { fechaCorta, kg, type EjercicioDeTabla, type HistorialEjercicio } from '
 type FilaSerie = { weight: string; reps: string };
 
 // Primer número de "8-12" / "10" / "30 seg" para sugerir repeticiones
-function repsObjetivo(reps: string): string {
-  return reps.match(/\d+/)?.[0] ?? '';
+function repsObjetivo(reps: string | null): string {
+  return reps?.match(/\d+/)?.[0] ?? '';
 }
 
 // Filas iniciales del formulario:
@@ -116,7 +116,7 @@ export default function TarjetaEjercicio({
           <p className="font-bold text-gray-100 leading-tight">{item.exercise.name}</p>
           <p className="text-xs text-gray-400 mt-0.5">
             <span className="text-accent font-semibold">
-              {item.sets} × {item.reps}
+              {item.reps ? `${item.sets} × ${item.reps}` : `${item.sets} series`}
             </span>
             {item.restSeconds != null && item.restSeconds > 0 && <> · descanso {item.restSeconds}s</>}
             {item.exercise.muscleGroup && <> · {item.exercise.muscleGroup}</>}

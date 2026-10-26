@@ -11,6 +11,7 @@ type Usuario = {
   email: string;
   role: 'ADMIN' | 'USER';
   weeklyPlan: 'ONE_DAY' | 'TWO_DAYS' | 'THREE_DAYS';
+  routineVariant: 'MEN' | 'WOMEN' | null; // versión de las tablas de ejercicios
   createdByAdmin: boolean;
   tieneAcceso: boolean;
   cancellationRequested: boolean;
@@ -103,6 +104,17 @@ export default function UsuariosAdminPage() {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ weeklyPlan: nuevoPlan }),
+    });
+    setActualizandoId(null);
+    cargarUsuarios();
+  }
+
+  async function cambiarVariante(id: string, variante: Usuario['routineVariant']) {
+    setActualizandoId(id);
+    await fetch(`/api/users/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ routineVariant: variante }),
     });
     setActualizandoId(null);
     cargarUsuarios();
@@ -307,7 +319,7 @@ export default function UsuariosAdminPage() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <select
                 value={u.weeklyPlan}
                 disabled={actualizandoId === u.id}
@@ -317,6 +329,20 @@ export default function UsuariosAdminPage() {
                 <option value="ONE_DAY">1 día/semana</option>
                 <option value="TWO_DAYS">2 días/semana</option>
                 <option value="THREE_DAYS">3 días/semana</option>
+              </select>
+
+              <select
+                value={u.routineVariant ?? ''}
+                disabled={actualizandoId === u.id}
+                onChange={(e) =>
+                  cambiarVariante(u.id, (e.target.value || null) as Usuario['routineVariant'])
+                }
+                title="Qué tabla de ejercicios sigue"
+                className="bg-page border border-white/10 rounded-lg px-2 py-1.5 text-xs disabled:opacity-50"
+              >
+                <option value="">Tabla: sin elegir</option>
+                <option value="MEN">Tabla: hombre</option>
+                <option value="WOMEN">Tabla: mujer</option>
               </select>
 
               <button

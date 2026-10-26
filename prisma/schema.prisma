@@ -58,6 +58,9 @@ model User {
   fitnessProfile FitnessProfile?
   aiPlans        AiPlan[]
   setLogs        SetLog[]
+  // Qué versión de las tablas de ejercicios sigue (hombre/mujer). null =
+  // aún no lo ha elegido: /mi-tabla se lo pregunta la primera vez.
+  routineVariant RoutineVariant?
 }
 
 // Una clase concreta en un día y hora, con aforo limitado
@@ -200,22 +203,31 @@ model Exercise {
   setLogs          SetLog[]
 }
 
-// Tabla de ejercicios de un mes para una tarifa concreta. Hay como mucho
-// una por (año, mes, tarifa): el socio ve automáticamente la que le toca
-// según su weeklyPlan, sin que el admin tenga que asignarla a mano.
+// Versión de una tabla: el gimnasio prepara tablas distintas para
+// hombres y mujeres con la misma tarifa.
+enum RoutineVariant {
+  MEN
+  WOMEN
+}
+
+// Tabla de ejercicios de un mes para una tarifa y versión concretas. Hay
+// como mucho una por (año, mes, tarifa, versión): el socio ve
+// automáticamente la que le toca según su weeklyPlan y su routineVariant,
+// sin que el admin tenga que asignarla a mano.
 model Routine {
-  id         String     @id @default(cuid())
+  id         String         @id @default(cuid())
   year       Int
   month      Int // 1-12
   weeklyPlan WeeklyPlan
+  variant    RoutineVariant @default(MEN)
   title      String?
   notes      String?
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
 
   days RoutineDay[]
 
-  @@unique([year, month, weeklyPlan])
+  @@unique([year, month, weeklyPlan, variant])
 }
 
 // Cada día de entrenamiento de la tabla (Día 1, Día 2...). Una tabla de
@@ -238,8 +250,11 @@ model RoutineExercise {
   routineDayId String
   exerciseId   String
   order        Int
+  // Ejercicios del mismo día con el mismo número de bloque se hacen
+  // seguidos (superserie): uno, después el otro, y eso es una serie.
+  block        Int
   sets         Int
-  reps         String // texto para permitir rangos: "10", "8-12", "30 seg"
+  reps         String? // texto para permitir rangos: "10", "8-12", "30 seg"; null = a criterio
   restSeconds  Int?
   notes        String?
 

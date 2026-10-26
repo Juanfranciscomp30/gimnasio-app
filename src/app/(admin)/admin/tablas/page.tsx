@@ -9,7 +9,17 @@ import { staggerContainer, fadeUpItem, tapScale } from '@/lib/motion';
 import Skeleton from '@/components/ui/Skeleton';
 import EditorTabla from '@/components/tablas/EditorTabla';
 import CatalogoEjercicios from '@/components/tablas/CatalogoEjercicios';
-import { ETIQUETA_PLAN, MESES, PLANES, type Ejercicio, type Plan, type Tabla } from '@/components/tablas/tipos';
+import {
+  ETIQUETA_PLAN,
+  ETIQUETA_VARIANTE,
+  MESES,
+  PLANES,
+  VARIANTES,
+  type Ejercicio,
+  type Plan,
+  type Tabla,
+  type Variante,
+} from '@/components/tablas/tipos';
 
 type Mes = { year: number; month: number };
 
@@ -20,8 +30,8 @@ function mesDesplazado({ year, month }: Mes, delta: number): Mes {
 
 const nombreMes = (m: Mes) => `${MESES[m.month - 1]} ${m.year}`;
 
-// Tablas de ejercicios mensuales: una por tarifa (1, 2 o 3 días/semana).
-// Cada socio ve automáticamente la de su tarifa en /mi-tabla.
+// Tablas de ejercicios mensuales: una por tarifa (1, 2 o 3 días/semana) y
+// versión (hombre/mujer). Cada socio ve automáticamente la suya en /mi-tabla.
 export default function TablasAdminPage() {
   const [mes, setMes] = useState<Mes>(() => {
     const hoy = new Date();
@@ -31,6 +41,7 @@ export default function TablasAdminPage() {
   const [tablasMesAnterior, setTablasMesAnterior] = useState<Tabla[]>([]);
   const [ejercicios, setEjercicios] = useState<Ejercicio[]>([]);
   const [planActivo, setPlanActivo] = useState<Plan>('TWO_DAYS');
+  const [variante, setVariante] = useState<Variante>('MEN');
   const [copiarDe, setCopiarDe] = useState('');
   const [creando, setCreando] = useState(false);
   const [error, setError] = useState('');
@@ -59,21 +70,25 @@ export default function TablasAdminPage() {
     cargarTablas();
   }, [cargarTablas]);
 
-  const tablaActiva = tablas?.find((t) => t.weeklyPlan === planActivo) ?? null;
+  const tablaDe = (lista: Tabla[] | null, plan: Plan) =>
+    lista?.find((t) => t.weeklyPlan === plan && t.variant === variante) ?? null;
+  const tablaActiva = tablaDe(tablas, planActivo);
 
   // Por defecto proponemos copiar la tabla de la misma tarifa del mes
   // anterior (lo habitual es partir de ella y cambiar algunos ejercicios).
   useEffect(() => {
-    const mismaTarifa = tablasMesAnterior.find((t) => t.weeklyPlan === planActivo);
+    const mismaTarifa = tablasMesAnterior.find((t) => t.weeklyPlan === planActivo && t.variant === variante);
     setCopiarDe(mismaTarifa?.id ?? '');
     setError('');
-  }, [planActivo, tablasMesAnterior]);
+  }, [planActivo, variante, tablasMesAnterior]);
 
+  const etiquetaTabla = (t: Tabla) =>
+    `${ETIQUETA_VARIANTE[t.variant]} · ${ETIQUETA_PLAN[t.weeklyPlan]} · ${nombreMes(t)}`;
   const opcionesCopia = [
-    ...tablasMesAnterior.map((t) => ({ id: t.id, label: `${ETIQUETA_PLAN[t.weeklyPlan]} · ${nombreMes(t)}` })),
+    ...tablasMesAnterior.map((t) => ({ id: t.id, label: etiquetaTabla(t) })),
     ...(tablas ?? [])
-      .filter((t) => t.weeklyPlan !== planActivo)
-      .map((t) => ({ id: t.id, label: `${ETIQUETA_PLAN[t.weeklyPlan]} · ${nombreMes(t)}` })),
+      .filter((t) => t.weeklyPlan !== planActivo || t.variant !== variante)
+      .map((t) => ({ id: t.id, label: etiquetaTabla(t) })),
   ];
 
   async function crearTabla() {
@@ -82,7 +97,7 @@ export default function TablasAdminPage() {
     const res = await fetch('/api/routines', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...mes, weeklyPlan: planActivo, copyFromId: copiarDe || undefined }),
+      body: JSON.stringify({ ...mes, weeklyPlan: planActivo, variant: variante, copyFromId: copiarDe || undefined }),
     });
     setCreando(false);
     if (!res.ok) {
@@ -105,7 +120,7 @@ export default function TablasAdminPage() {
           <div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Tablas de ejercicios</h1>
             <p className="text-sm text-gray-500 mt-1">
-              Una tabla por tarifa y mes. Cada socio ve la suya automáticamente.
+              Una tabla por mes, tarifa y versión. Cada socio ve la suya automáticamente.
             </p>
           </div>
           <div className="flex items-center gap-1 bg-card rounded-xl p-1">
@@ -127,10 +142,33 @@ export default function TablasAdminPage() {
           </div>
         </motion.div>
 
+        {/* Versión: hombre / mujer */}
+        <motion.div variants={fadeUpItem} className="inline-grid grid-cols-2 bg-card rounded-xl p-1 mb-3">
+          {VARIANTES.map((v) => (
+            <button
+              key={v}
+              onClick={() => setVariante(v)}
+              className={clsx(
+                'relative px-5 py-1.5 rounded-lg text-sm font-semibold transition-colors',
+                v === variante ? 'text-page' : 'text-gray-400 hover:text-white'
+              )}
+            >
+              {v === variante && (
+                <motion.span
+                  layoutId="admin-tablas-variante"
+                  className="absolute inset-0 bg-accent rounded-lg"
+                  transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+                />
+              )}
+              <span className="relative">{ETIQUETA_VARIANTE[v]}</span>
+            </button>
+          ))}
+        </motion.div>
+
         {/* Una tarjeta por tarifa con el estado de su tabla este mes */}
         <motion.div variants={fadeUpItem} className="grid grid-cols-3 gap-2 sm:gap-3 mb-5">
           {PLANES.map((plan) => {
-            const tabla = tablas?.find((t) => t.weeklyPlan === plan);
+            const tabla = tablaDe(tablas, plan);
             const activa = plan === planActivo;
             return (
               <motion.button
@@ -176,7 +214,8 @@ export default function TablasAdminPage() {
           ) : (
             <div className="bg-card rounded-2xl p-5">
               <p className="font-semibold mb-1">
-                No hay tabla de {ETIQUETA_PLAN[planActivo]} para <span className="capitalize">{nombreMes(mes)}</span>
+                No hay tabla de {ETIQUETA_VARIANTE[variante].toLowerCase()} · {ETIQUETA_PLAN[planActivo]} para{' '}
+                <span className="capitalize">{nombreMes(mes)}</span>
               </p>
               <p className="text-sm text-gray-500 mb-4">
                 Puedes crearla vacía o copiar otra y cambiar solo lo necesario.

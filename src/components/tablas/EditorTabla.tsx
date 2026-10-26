@@ -9,10 +9,12 @@ import {
   faXmark,
   faPlus,
   faFloppyDisk,
+  faLink,
+  faLinkSlash,
 } from '@fortawesome/free-solid-svg-icons';
 import clsx from 'clsx';
 import { tapScale } from '@/lib/motion';
-import { ETIQUETA_PLAN, MESES, type Ejercicio, type Tabla } from './tipos';
+import { ETIQUETA_PLAN, ETIQUETA_VARIANTE, MESES, letraBloque, type Ejercicio, type Tabla } from './tipos';
 
 const INPUT =
   'bg-page text-gray-100 normal-case tracking-normal border border-white/10 rounded-lg px-2.5 py-1.5 text-sm placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-accent/50';
@@ -22,6 +24,8 @@ const INPUT =
 type Fila = {
   key: string;
   exerciseId: string;
+  // true = va en el mismo bloque (superserie) que el ejercicio de arriba
+  conAnterior: boolean;
   sets: string;
   reps: string;
   rest: string;
@@ -30,6 +34,18 @@ type Fila = {
 
 type DiaEditor = { dayNumber: number; name: string; filas: Fila[] };
 
+/**
+ * Número de bloque de cada fila: empieza uno nuevo salvo que la fila esté
+ * unida a la de arriba. Así "Press + Sentadilla, Fondos" -> 0, 0, 1.
+ */
+function numerarBloques(filas: Fila[]) {
+  let bloque = -1;
+  return filas.map((fila, i) => {
+    if (i === 0 || !fila.conAnterior) bloque++;
+    return { fila, block: bloque };
+  });
+}
+
 let contadorClaves = 0;
 const nuevaClave = () => `fila-${++contadorClaves}`;
 
@@ -37,11 +53,12 @@ function desdeTabla(tabla: Tabla): DiaEditor[] {
   return tabla.days.map((d) => ({
     dayNumber: d.dayNumber,
     name: d.name ?? '',
-    filas: d.exercises.map((e) => ({
+    filas: d.exercises.map((e, i) => ({
       key: nuevaClave(),
       exerciseId: e.exerciseId,
+      conAnterior: i > 0 && d.exercises[i - 1].block === e.block,
       sets: String(e.sets),
-      reps: e.reps,
+      reps: e.reps ?? '',
       rest: e.restSeconds != null ? String(e.restSeconds) : '',
       notes: e.notes ?? '',
     })),
@@ -94,6 +111,7 @@ export default function EditorTabla({
   }, [ejercicios]);
 
   const dia = dias.find((d) => d.dayNumber === diaActivo) ?? dias[0];
+  const bloquesDia = dia ? numerarBloques(dia.filas) : [];
 
   function modificarDia(cambio: (d: DiaEditor) => DiaEditor) {
     setDias((actuales) => actuales.map((d) => (d.dayNumber === diaActivo ? cambio(d) : d)));
@@ -101,10 +119,17 @@ export default function EditorTabla({
     setOk(false);
   }
 
-  function modificarFila(key: string, campo: keyof Omit<Fila, 'key'>, valor: string) {
+  function modificarFila(key: string, campo: 'sets' | 'reps' | 'rest' | 'notes', valor: string) {
     modificarDia((d) => ({
       ...d,
       filas: d.filas.map((f) => (f.key === key ? { ...f, [campo]: valor } : f)),
+    }));
+  }
+
+  function alternarUnion(key: string) {
+    modificarDia((d) => ({
+      ...d,
+      filas: d.filas.map((f) => (f.key === key ? { ...f, conAnterior: !f.conAnterior } : f)),
     }));
   }
 
@@ -124,7 +149,16 @@ export default function EditorTabla({
       ...d,
       filas: [
         ...d.filas,
-        { key: nuevaClave(), exerciseId: ejercicioANadir, sets: '3', reps: '10', rest: '90', notes: '' },
+        {
+          key: nuevaClave(),
+          exerciseId: ejercicioANadir,
+          conAnterior: false,
+          // Por defecto, las mismas series que el ejercicio anterior
+          sets: d.filas[d.filas.length - 1]?.sets ?? '4',
+          reps: '',
+          rest: '',
+          notes: '',
+        },
       ],
     }));
     setEjercicioANadir('');
@@ -141,11 +175,6 @@ export default function EditorTabla({
           setError(`Revisa las series de "${porId.get(f.exerciseId)?.name}" (entre 1 y 20)`);
           return;
         }
-        if (!f.reps.trim()) {
-          setDiaActivo(d.dayNumber);
-          setError(`Indica las repeticiones de "${porId.get(f.exerciseId)?.name}"`);
-          return;
-        }
       }
     }
 
@@ -159,10 +188,11 @@ export default function EditorTabla({
         days: dias.map((d) => ({
           dayNumber: d.dayNumber,
           name: d.name.trim() || null,
-          exercises: d.filas.map((f) => ({
+          exercises: numerarBloques(d.filas).map(({ fila: f, block }) => ({
             exerciseId: f.exerciseId,
+            block,
             sets: Number(f.sets),
-            reps: f.reps.trim(),
+            reps: f.reps.trim() || null,
             restSeconds: f.rest.trim() ? Math.round(Number(f.rest)) || 0 : null,
             notes: f.notes.trim() || null,
           })),
@@ -194,8 +224,8 @@ export default function EditorTabla({
           <p className="text-[11px] font-bold uppercase tracking-widest text-accent">
             {ETIQUETA_PLAN[tabla.weeklyPlan]}
           </p>
-          <p className="text-sm text-gray-400 capitalize">
-            {MESES[tabla.month - 1]} {tabla.year}
+          <p className="text-sm text-gray-400">
+            {ETIQUETA_VARIANTE[tabla.variant]} · <span className="capitalize">{MESES[tabla.month - 1]}</span> {tabla.year}
           </p>
         </div>
         {confirmarBorrado ? (
@@ -274,21 +304,58 @@ export default function EditorTabla({
             className={`${INPUT} w-full mb-3`}
           />
 
-          <div className="space-y-2">
+          <div>
             {dia.filas.length === 0 && (
               <p className="text-gray-500 text-sm py-4 text-center">
                 Este día aún no tiene ejercicios. Añade el primero abajo.
               </p>
             )}
             <AnimatePresence initial={false}>
-              {dia.filas.map((f, i) => (
+              {bloquesDia.map(({ fila: f, block }, i) => {
+                const unida = i > 0 && f.conAnterior;
+                const tamanoBloque = bloquesDia.filter((b) => b.block === block).length;
+                return (
                 <motion.div
                   key={f.key}
                   layout
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, height: 0 }}
-                  className="bg-page/60 border border-white/5 rounded-xl p-3"
+                >
+                  {/* Cabecera del bloque o botón para unirlo al de arriba */}
+                  {!unida ? (
+                    <div className={clsx('flex items-center justify-between gap-2 px-1 mb-1.5', i > 0 && 'mt-4')}>
+                      <p className="text-[11px] font-bold uppercase tracking-widest text-gray-500">
+                        Bloque {letraBloque(block)}
+                        {tamanoBloque > 1 && <span className="text-accent normal-case tracking-normal font-semibold"> · superserie</span>}
+                      </p>
+                      {i > 0 && (
+                        <button
+                          onClick={() => alternarUnion(f.key)}
+                          className="text-[11px] text-gray-500 hover:text-accent flex items-center gap-1.5"
+                        >
+                          <FontAwesomeIcon icon={faLink} className="w-2.5 h-2.5" />
+                          Unir al bloque de arriba
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex justify-center -my-0.5 relative z-10">
+                      <button
+                        onClick={() => alternarUnion(f.key)}
+                        title="Separar en otro bloque"
+                        className="text-[10px] font-semibold text-accent bg-card border border-accent/30 hover:border-danger/50 hover:text-danger rounded-full px-2.5 py-0.5 flex items-center gap-1.5"
+                      >
+                        <FontAwesomeIcon icon={faLinkSlash} className="w-2.5 h-2.5" />
+                        seguido de
+                      </button>
+                    </div>
+                  )}
+                <div
+                  className={clsx(
+                    'bg-page/60 border rounded-xl p-3',
+                    tamanoBloque > 1 ? 'border-accent/20' : 'border-white/5'
+                  )}
                 >
                   <div className="flex items-center justify-between gap-2 mb-2">
                     <p className="text-sm font-semibold text-gray-100 min-w-0 truncate">
@@ -312,7 +379,7 @@ export default function EditorTabla({
                       </button>
                       <button
                         onClick={() => mover(i, 1)}
-                        disabled={i === dia.filas.length - 1}
+                        disabled={i === bloquesDia.length - 1}
                         className="w-7 h-7 rounded-lg hover:bg-white/5 hover:text-white disabled:opacity-30"
                         aria-label="Bajar"
                       >
@@ -342,7 +409,7 @@ export default function EditorTabla({
                       <input
                         value={f.reps}
                         onChange={(e) => modificarFila(f.key, 'reps', e.target.value)}
-                        placeholder="8-12"
+                        placeholder="a criterio"
                         className={`${INPUT} w-full mt-1`}
                       />
                     </label>
@@ -365,8 +432,10 @@ export default function EditorTabla({
                       />
                     </label>
                   </div>
+                </div>
                 </motion.div>
-              ))}
+                );
+              })}
             </AnimatePresence>
           </div>
 

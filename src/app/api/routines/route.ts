@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { Prisma, WeeklyPlan } from '@prisma/client';
+import { Prisma, RoutineVariant, WeeklyPlan } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { DIAS_POR_PLAN, INCLUDE_TABLA, leerMes, requireAdmin } from '@/lib/tablas';
 
@@ -8,13 +8,15 @@ const crearTablaSchema = z.object({
   year: z.number().int().min(2000).max(2100),
   month: z.number().int().min(1).max(12),
   weeklyPlan: z.nativeEnum(WeeklyPlan),
+  variant: z.nativeEnum(RoutineVariant).default('MEN'),
   title: z.string().trim().max(80).optional(),
   // Si viene, se copian los días y ejercicios de esa tabla (normalmente la
   // del mes anterior) para no tener que montarla desde cero.
   copyFromId: z.string().optional(),
 });
 
-// Tablas de un mes (?year=2026&month=11): una como mucho por tarifa.
+// Tablas de un mes (?year=2026&month=11): una como mucho por tarifa y
+// versión (hombre/mujer).
 export async function GET(request: Request) {
   if (!(await requireAdmin())) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
@@ -33,7 +35,7 @@ export async function GET(request: Request) {
   return NextResponse.json(tablas);
 }
 
-// Crea la tabla de un mes para una tarifa, con tantos días como permite la
+// Crea la tabla de un mes para una tarifa y versión, con tantos días como permite la
 // tarifa (1, 2 o 3). Vacía o copiada de otra tabla.
 export async function POST(request: Request) {
   if (!(await requireAdmin())) {
@@ -56,6 +58,7 @@ export async function POST(request: Request) {
         year: datos.year,
         month: datos.month,
         weeklyPlan: datos.weeklyPlan,
+        variant: datos.variant,
         title: datos.title || origen?.title || null,
         notes: origen?.notes ?? null,
         days: {
@@ -69,6 +72,7 @@ export async function POST(request: Request) {
                 create: (diaOrigen?.exercises ?? []).map((e) => ({
                   exerciseId: e.exerciseId,
                   order: e.order,
+                  block: e.block,
                   sets: e.sets,
                   reps: e.reps,
                   restSeconds: e.restSeconds,
@@ -89,7 +93,7 @@ export async function POST(request: Request) {
     }
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       return NextResponse.json(
-        { error: 'Ya existe una tabla para esa tarifa en ese mes' },
+        { error: 'Ya existe una tabla para esa tarifa y versión en ese mes' },
         { status: 409 }
       );
     }

@@ -11,7 +11,8 @@ import {
 
 type Serie = { setNumber: number; weight: number; reps: number };
 
-// La tabla del mes que le toca al socio según su tarifa (1, 2 o 3 días),
+// La tabla del mes que le toca al socio según su tarifa (1, 2 o 3 días) y
+// la versión que sigue (hombre/mujer),
 // junto con su historial de cada ejercicio de la tabla:
 //  - "ultima": las series de la última vez que hizo ese ejercicio ANTES de
 //    hoy, aunque fuera con otra tabla hace meses. Es lo que permite que la
@@ -36,21 +37,34 @@ export async function GET(request: Request) {
 
   const usuario = await prisma.user.findUnique({
     where: { id: userId },
-    select: { weeklyPlan: true },
+    select: { weeklyPlan: true, routineVariant: true },
   });
   if (!usuario) {
     return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
   }
 
+  const base = { weeklyPlan: usuario.weeklyPlan, variant: usuario.routineVariant };
+
+  // Aún no ha dicho si sigue la tabla de hombre o de mujer: la pantalla
+  // se lo pregunta antes de enseñarle nada.
+  if (!usuario.routineVariant) {
+    return NextResponse.json({ ...base, routine: null, historial: {} });
+  }
+
   const tabla = await prisma.routine.findUnique({
     where: {
-      year_month_weeklyPlan: { year: mes.year, month: mes.month, weeklyPlan: usuario.weeklyPlan },
+      year_month_weeklyPlan_variant: {
+        year: mes.year,
+        month: mes.month,
+        weeklyPlan: usuario.weeklyPlan,
+        variant: usuario.routineVariant,
+      },
     },
     include: INCLUDE_TABLA,
   });
 
   if (!tabla) {
-    return NextResponse.json({ weeklyPlan: usuario.weeklyPlan, routine: null, historial: {} });
+    return NextResponse.json({ ...base, routine: null, historial: {} });
   }
 
   const exerciseIds = Array.from(
@@ -111,5 +125,5 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.json({ weeklyPlan: usuario.weeklyPlan, routine: tabla, historial });
+  return NextResponse.json({ ...base, routine: tabla, historial });
 }

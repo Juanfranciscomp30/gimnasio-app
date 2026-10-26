@@ -6,6 +6,16 @@ export type Plan = 'ONE_DAY' | 'TWO_DAYS' | 'THREE_DAYS';
 
 export const PLANES: Plan[] = ['ONE_DAY', 'TWO_DAYS', 'THREE_DAYS'];
 
+// Versión de la tabla: el gimnasio hace tablas distintas para hombre y mujer
+export type Variante = 'MEN' | 'WOMEN';
+
+export const VARIANTES: Variante[] = ['MEN', 'WOMEN'];
+
+export const ETIQUETA_VARIANTE: Record<Variante, string> = {
+  MEN: 'Hombre',
+  WOMEN: 'Mujer',
+};
+
 export const ETIQUETA_PLAN: Record<Plan, string> = {
   ONE_DAY: '1 día/semana',
   TWO_DAYS: '2 días/semana',
@@ -35,8 +45,9 @@ export type EjercicioDeTabla = {
   id: string;
   exerciseId: string;
   order: number;
+  block: number; // mismo número = se hacen seguidos (superserie)
   sets: number;
-  reps: string;
+  reps: string | null;
   restSeconds: number | null;
   notes: string | null;
   exercise: Ejercicio;
@@ -54,10 +65,28 @@ export type Tabla = {
   year: number;
   month: number;
   weeklyPlan: Plan;
+  variant: Variante;
   title: string | null;
   notes: string | null;
   days: DiaDeTabla[];
 };
+
+/**
+ * Agrupa los ejercicios de un día en bloques consecutivos con el mismo
+ * número de bloque (los que se hacen seguidos, en superserie).
+ */
+export function agruparEnBloques<T extends { block: number }>(ejercicios: T[]): T[][] {
+  const bloques: T[][] = [];
+  for (const e of ejercicios) {
+    const ultimo = bloques[bloques.length - 1];
+    if (ultimo && ultimo[0].block === e.block) ultimo.push(e);
+    else bloques.push([e]);
+  }
+  return bloques;
+}
+
+/** Letra del bloque para mostrarlo: A, B, C... */
+export const letraBloque = (i: number) => String.fromCharCode(65 + i);
 
 export type Serie = { setNumber: number; weight: number; reps: number };
 

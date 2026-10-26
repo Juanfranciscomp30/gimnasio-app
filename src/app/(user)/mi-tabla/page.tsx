@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faClipboardList, faChartLine, faTrophy } from '@fortawesome/free-solid-svg-icons';
@@ -11,7 +11,11 @@ import TarjetaEjercicio from '@/components/tablas/TarjetaEjercicio';
 import GraficaProgreso from '@/components/tablas/GraficaProgreso';
 import {
   ETIQUETA_PLAN,
+  ETIQUETA_VARIANTE,
+  VARIANTES,
   MESES,
+  agruparEnBloques,
+  letraBloque,
   fechaCorta,
   hoyISO,
   kg,
@@ -19,10 +23,12 @@ import {
   type Plan,
   type ProgresoEjercicio,
   type Tabla,
+  type Variante,
 } from '@/components/tablas/tipos';
 
 type RespuestaMiTabla = {
   weeklyPlan: Plan;
+  variant: Variante | null; // null = aún no ha elegido hombre/mujer
   routine: Tabla | null;
   historial: Record<string, HistorialEjercicio>;
 };
@@ -40,9 +46,11 @@ export default function MiTablaPage() {
 
   const mesActual = { year: Number(hoy.slice(0, 4)), month: Number(hoy.slice(5, 7)) };
 
-  useEffect(() => {
+  const [eligiendoVariante, setEligiendoVariante] = useState(false);
+
+  const cargarTabla = useCallback(() => {
     const [year, month] = hoy.split('-').map(Number);
-    fetch(`/api/routines/mine?year=${year}&month=${month}&today=${hoy}`)
+    return fetch(`/api/routines/mine?year=${year}&month=${month}&today=${hoy}`)
       .then(async (res) => {
         if (!res.ok) throw new Error();
         const json: RespuestaMiTabla = await res.json();
@@ -54,6 +62,21 @@ export default function MiTablaPage() {
       })
       .catch(() => setError('No se ha podido cargar tu tabla'));
   }, [hoy]);
+
+  useEffect(() => {
+    cargarTabla();
+  }, [cargarTabla]);
+
+  async function elegirVariante(v: Variante) {
+    setEligiendoVariante(false);
+    setDatos(null);
+    await fetch('/api/users/me', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ routineVariant: v }),
+    });
+    cargarTabla();
+  }
 
   // El progreso se pide al abrir la pestaña (y se vuelve a pedir si se
   // apuntan pesos nuevos, porque al guardar lo ponemos a null)
@@ -155,20 +178,59 @@ export default function MiTablaPage() {
               </div>
             )}
 
-            {datos && !tabla && (
+            {/* Primera vez (o quiere cambiar): ¿tabla de hombre o de mujer? */}
+            {datos && (!datos.variant || eligiendoVariante) && (
+              <div className="bg-card rounded-2xl p-6 text-center">
+                <p className="font-semibold">¿Qué tabla sigues?</p>
+                <p className="text-sm text-gray-500 mt-1 mb-4">
+                  El gimnasio prepara tablas distintas para hombre y mujer.
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {VARIANTES.map((v) => (
+                    <motion.button
+                      key={v}
+                      whileTap={tapScale}
+                      onClick={() => elegirVariante(v)}
+                      className={clsx(
+                        'py-3 rounded-xl font-bold text-sm border transition-colors',
+                        datos.variant === v
+                          ? 'bg-accentsoft border-accent/40 text-accent'
+                          : 'bg-page border-white/10 text-gray-200 hover:border-accent/40'
+                      )}
+                    >
+                      {ETIQUETA_VARIANTE[v]}
+                    </motion.button>
+                  ))}
+                </div>
+                {datos.variant && (
+                  <button onClick={() => setEligiendoVariante(false)} className="text-xs text-gray-500 mt-3">
+                    Cancelar
+                  </button>
+                )}
+              </div>
+            )}
+
+            {datos && datos.variant && !eligiendoVariante && !tabla && (
               <div className="bg-card rounded-2xl p-6 text-center">
                 <FontAwesomeIcon icon={faClipboardList} className="w-6 h-6 text-gray-600 mb-3" />
                 <p className="font-semibold">Aún no hay tabla para {MESES[mesActual.month - 1]}</p>
                 <p className="text-sm text-gray-500 mt-1">
-                  Tu entrenador la publicará pronto ({ETIQUETA_PLAN[datos.weeklyPlan]}).
+                  Tu entrenador la publicará pronto ({ETIQUETA_VARIANTE[datos.variant].toLowerCase()} ·{' '}
+                  {ETIQUETA_PLAN[datos.weeklyPlan]}).
                 </p>
+                <button onClick={() => setEligiendoVariante(true)} className="text-xs text-gray-500 underline mt-3">
+                  Cambiar hombre/mujer
+                </button>
               </div>
             )}
 
-            {tabla && diaActual && (
+            {tabla && diaActual && datos?.variant && !eligiendoVariante && (
               <>
                 <p className="text-xs text-gray-500 mb-3">
-                  <span className="capitalize">{MESES[tabla.month - 1]}</span> · {ETIQUETA_PLAN[tabla.weeklyPlan]}
+                  <span className="capitalize">{MESES[tabla.month - 1]}</span> · {ETIQUETA_PLAN[tabla.weeklyPlan]} ·{' '}
+                  <button onClick={() => setEligiendoVariante(true)} className="underline decoration-dotted hover:text-gray-300">
+                    {ETIQUETA_VARIANTE[tabla.variant]}
+                  </button>
                   {tabla.title && <> · <span className="text-gray-300">{tabla.title}</span></>}
                 </p>
                 {tabla.notes && (
@@ -213,14 +275,39 @@ export default function MiTablaPage() {
                     {diaActual.exercises.length === 0 && (
                       <p className="text-gray-500 text-sm text-center py-8">Este día aún no tiene ejercicios.</p>
                     )}
-                    {diaActual.exercises.map((item) => (
-                      <motion.div key={item.id} variants={fadeUpItem}>
-                        <TarjetaEjercicio
-                          item={item}
-                          historial={datos?.historial[item.exerciseId]}
-                          hoy={hoy}
-                          onGuardado={(r) => alGuardar(item.exerciseId, r)}
-                        />
+                    {agruparEnBloques(diaActual.exercises).map((bloque, i) => (
+                      <motion.div key={bloque[0].id} variants={fadeUpItem}>
+                        <div className="flex items-baseline justify-between gap-2 px-1 mb-1.5">
+                          <p className="text-[11px] font-bold uppercase tracking-widest text-gray-500">
+                            Bloque {letraBloque(i)}
+                          </p>
+                          {bloque.length > 1 && (
+                            <p className="text-[11px] text-accent">
+                              Superserie · {Math.max(...bloque.map((e) => e.sets))} vueltas
+                            </p>
+                          )}
+                        </div>
+                        {bloque.length > 1 && (
+                          <p className="text-[11px] text-gray-500 px-1 mb-2">
+                            Haz {bloque.map((e) => e.exercise.name).join(', luego ')} seguidos: eso es una serie.
+                          </p>
+                        )}
+                        <div
+                          className={clsx(
+                            'space-y-2',
+                            bloque.length > 1 && 'border-l-2 border-accent/40 pl-2.5'
+                          )}
+                        >
+                          {bloque.map((item) => (
+                            <TarjetaEjercicio
+                              key={item.id}
+                              item={item}
+                              historial={datos?.historial[item.exerciseId]}
+                              hoy={hoy}
+                              onGuardado={(r) => alGuardar(item.exerciseId, r)}
+                            />
+                          ))}
+                        </div>
                       </motion.div>
                     ))}
                   </motion.div>

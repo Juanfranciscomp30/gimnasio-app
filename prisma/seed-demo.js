@@ -96,7 +96,7 @@ async function main() {
 
   const usuarioPrincipal = await prisma.user.upsert({
     where: { email: DEMO_USER.email },
-    update: { passwordHash: passwordHashUser, emailVerified: new Date(), createdAt: ALTA_SOCIOS, weeklyPlan: 'TWO_DAYS' },
+    update: { passwordHash: passwordHashUser, emailVerified: new Date(), createdAt: ALTA_SOCIOS, weeklyPlan: 'TWO_DAYS', routineVariant: 'MEN' },
     create: {
       createdAt: ALTA_SOCIOS,
       name: 'Usuario Demo',
@@ -104,6 +104,7 @@ async function main() {
       passwordHash: passwordHashUser,
       role: 'USER',
       weeklyPlan: 'TWO_DAYS',
+      routineVariant: 'MEN',
       emailVerified: new Date(),
     },
   });
@@ -478,11 +479,12 @@ async function main() {
 
   for (const offset of Object.keys(PLANTILLAS)) {
     const { year, month } = mesConOffset(Number(offset));
-    for (const plan of ['ONE_DAY', 'TWO_DAYS', 'THREE_DAYS']) {
+    // Misma tabla para la versión de hombre y la de mujer (es una demo)
+    for (const [plan, variant] of ['ONE_DAY', 'TWO_DAYS', 'THREE_DAYS'].flatMap((p) => [[p, 'MEN'], [p, 'WOMEN']])) {
       const dias = tablaDeTarifa(PLANTILLAS[offset].TWO_DAYS, plan);
       await prisma.routine.create({
         data: {
-          year, month, weeklyPlan: plan, title: TITULOS[offset],
+          year, month, weeklyPlan: plan, variant, title: TITULOS[offset],
           notes: offset === '0' ? 'Calienta 10 minutos antes de empezar y apunta tus pesos al terminar cada ejercicio.' : null,
           days: {
             create: dias.map(([name, ejercicios], i) => ({
@@ -491,6 +493,8 @@ async function main() {
               exercises: {
                 create: ejercicios.map(([nombre, sets, reps, rest], orden) => ({
                   exerciseId: ej[nombre].id, order: orden, sets, reps, restSeconds: rest,
+                  // Este mes, ejercicios de dos en dos en superserie (bloques)
+                  block: offset === '0' ? Math.floor(orden / 2) : orden,
                 })),
               },
             })),
