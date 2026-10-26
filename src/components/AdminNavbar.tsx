@@ -12,12 +12,14 @@ import {
   faUsers,
   faCreditCard,
   faWandMagicSparkles,
+  faClipboardList,
 } from '@fortawesome/free-solid-svg-icons';
 import clsx from 'clsx';
 
 const links = [
   { href: '/admin', label: 'Inicio', icon: faGaugeHigh },
   { href: '/admin/clases', label: 'Clases', icon: faDumbbell },
+  { href: '/admin/tablas', label: 'Tablas', icon: faClipboardList },
   { href: '/admin/usuarios', label: 'Usuarios', icon: faUsers },
   { href: '/admin/pagos', label: 'Pagos', icon: faCreditCard },
   { href: '/admin/ia', label: 'IA', icon: faWandMagicSparkles },

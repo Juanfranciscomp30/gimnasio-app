@@ -57,6 +57,10 @@ model User {
   notifications Notification[]
   fitnessProfile FitnessProfile?
   aiPlans        AiPlan[]
+  setLogs        SetLog[]
+  // Qué versión de las tablas de ejercicios sigue (hombre/mujer). null =
+  // aún no lo ha elegido: /mi-tabla se lo pregunta la primera vez.
+  routineVariant RoutineVariant?
 }
 
 // Una clase concreta en un día y hora, con aforo limitado
@@ -180,4 +184,101 @@ model AiReport {
   createdAt DateTime @default(now())
 
   @@index([kind, createdAt])
+}
+
+// ─── TABLAS DE EJERCICIOS ────────────────────────────────────────────
+
+// Catálogo de ejercicios que gestiona el admin (press banca, sentadilla...).
+// Los pesos que apunta cada socio van ligados al EJERCICIO, no a la tabla
+// del mes: así, si un ejercicio vuelve a salir dos meses después, la app
+// recuerda el último peso que levantó con él.
+model Exercise {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  muscleGroup String?
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  routineExercises RoutineExercise[]
+  setLogs          SetLog[]
+}
+
+// Versión de una tabla: el gimnasio prepara tablas distintas para
+// hombres y mujeres con la misma tarifa.
+enum RoutineVariant {
+  MEN
+  WOMEN
+}
+
+// Tabla de ejercicios de un mes para una tarifa y versión concretas. Hay
+// como mucho una por (año, mes, tarifa, versión): el socio ve
+// automáticamente la que le toca según su weeklyPlan y su routineVariant,
+// sin que el admin tenga que asignarla a mano.
+model Routine {
+  id         String         @id @default(cuid())
+  year       Int
+  month      Int // 1-12
+  weeklyPlan WeeklyPlan
+  variant    RoutineVariant @default(MEN)
+  title      String?
+  notes      String?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  days RoutineDay[]
+
+  @@unique([year, month, weeklyPlan, variant])
+}
+
+// Cada día de entrenamiento de la tabla (Día 1, Día 2...). Una tabla de
+// la tarifa de 3 días tiene 3 RoutineDay, la de 2 días tiene 2, etc.
+model RoutineDay {
+  id        String  @id @default(cuid())
+  routineId String
+  dayNumber Int // 1, 2 o 3
+  name      String? // ej: "Pierna y glúteo"
+
+  routine   Routine           @relation(fields: [routineId], references: [id], onDelete: Cascade)
+  exercises RoutineExercise[]
+
+  @@unique([routineId, dayNumber])
+}
+
+// Un ejercicio dentro de un día de la tabla, con sus series/repeticiones.
+model RoutineExercise {
+  id           String  @id @default(cuid())
+  routineDayId String
+  exerciseId   String
+  order        Int
+  // Ejercicios del mismo día con el mismo número de bloque se hacen
+  // seguidos (superserie): uno, después el otro, y eso es una serie.
+  block        Int
+  sets         Int
+  reps         String? // texto para permitir rangos: "10", "8-12", "30 seg"; null = a criterio
+  restSeconds  Int?
+  notes        String?
+
+  routineDay RoutineDay @relation(fields: [routineDayId], references: [id], onDelete: Cascade)
+  exercise   Exercise   @relation(fields: [exerciseId], references: [id], onDelete: Restrict)
+
+  @@index([routineDayId, order])
+  @@index([exerciseId])
+}
+
+// Una serie que ha hecho un socio: peso y repeticiones de un ejercicio en
+// un día concreto. Varias filas por (usuario, ejercicio, día) = varias series.
+model SetLog {
+  id          String   @id @default(cuid())
+  userId      String
+  exerciseId  String
+  sessionDate DateTime @db.Date // día del entreno (sin hora)
+  setNumber   Int
+  weight      Float // kg
+  reps        Int
+  createdAt   DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exercise Exercise @relation(fields: [exerciseId], references: [id], onDelete: Restrict)
+
+  @@index([userId, exerciseId, sessionDate])
 }

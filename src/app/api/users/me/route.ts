@@ -22,6 +22,7 @@ export async function GET() {
       profileImageUrl: true,
       cancellationRequested: true,
       cancellationRequestedAt: true,
+      routineVariant: true,
     },
   });
 
@@ -33,14 +34,16 @@ export async function GET() {
 }
 
 const actualizarPerfilSchema = z.object({
-  // Por ahora es el único campo que un usuario puede tocar de sí mismo:
-  // solicitar la baja (true) o retirar su solicitud mientras el admin no
+  // Solicitar la baja (true) o retirar su solicitud mientras el admin no
   // la haya procesado (false).
-  cancellationRequested: z.boolean(),
+  cancellationRequested: z.boolean().optional(),
+  // Qué versión de las tablas de ejercicios sigue (hombre/mujer).
+  routineVariant: z.enum(['MEN', 'WOMEN']).optional(),
 });
 
-// El propio usuario solicita o retira su baja. No puede tocar su plan,
-// rol ni ningún otro dato: eso solo lo hace el admin desde /admin/usuarios.
+// El propio usuario solicita o retira su baja, o elige su versión de las
+// tablas de ejercicios. No puede tocar su plan, rol ni ningún otro dato:
+// eso solo lo hace el admin desde /admin/usuarios.
 export async function PATCH(request: Request) {
   const session = await getServerSession(authOptions);
   if (!session) {
@@ -49,13 +52,16 @@ export async function PATCH(request: Request) {
 
   try {
     const body = await request.json();
-    const { cancellationRequested } = actualizarPerfilSchema.parse(body);
+    const { cancellationRequested, routineVariant } = actualizarPerfilSchema.parse(body);
 
     const usuarioActualizado = await prisma.user.update({
       where: { id: (session.user as any).id },
       data: {
-        cancellationRequested,
-        cancellationRequestedAt: cancellationRequested ? new Date() : null,
+        routineVariant,
+        ...(cancellationRequested !== undefined && {
+          cancellationRequested,
+          cancellationRequestedAt: cancellationRequested ? new Date() : null,
+        }),
       },
       select: {
         id: true,
@@ -66,6 +72,7 @@ export async function PATCH(request: Request) {
         profileImageUrl: true,
         cancellationRequested: true,
         cancellationRequestedAt: true,
+        routineVariant: true,
       },
     });
 

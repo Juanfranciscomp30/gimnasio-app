@@ -7,6 +7,8 @@ import { prisma } from '@/lib/prisma';
 const actualizarUsuarioSchema = z.object({
   weeklyPlan: z.enum(['ONE_DAY', 'TWO_DAYS', 'THREE_DAYS']).optional(),
   role: z.enum(['ADMIN', 'USER']).optional(),
+  // Versión de las tablas de ejercicios (hombre/mujer); null = sin elegir
+  routineVariant: z.enum(['MEN', 'WOMEN']).nullable().optional(),
   // Acciones sobre una solicitud de baja pendiente (ver /perfil):
   // - confirmarBaja: el admin la procesa de verdad -> revoca el acceso
   //   (passwordHash a null, igual que un usuario sin activar) y limpia la solicitud

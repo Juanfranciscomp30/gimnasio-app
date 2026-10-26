@@ -96,7 +96,7 @@ async function main() {
 
   const usuarioPrincipal = await prisma.user.upsert({
     where: { email: DEMO_USER.email },
-    update: { passwordHash: passwordHashUser, emailVerified: new Date(), createdAt: ALTA_SOCIOS, weeklyPlan: 'TWO_DAYS' },
+    update: { passwordHash: passwordHashUser, emailVerified: new Date(), createdAt: ALTA_SOCIOS, weeklyPlan: 'TWO_DAYS', routineVariant: 'MEN' },
     create: {
       createdAt: ALTA_SOCIOS,
       name: 'Usuario Demo',
@@ -104,6 +104,7 @@ async function main() {
       passwordHash: passwordHashUser,
       role: 'USER',
       weeklyPlan: 'TWO_DAYS',
+      routineVariant: 'MEN',
       emailVerified: new Date(),
     },
   });
@@ -415,6 +416,127 @@ async function main() {
       },
     ],
   });
+
+  // --- Tablas de ejercicios ---------------------------------------------
+  // Catálogo + una tabla por tarifa para este mes y los dos anteriores, y
+  // pesos apuntados por el usuario demo para que "Mi tabla" muestre la
+  // última vez / récord y "Progreso" tenga gráficas con contenido. La
+  // sentadilla goblet sale hace dos meses y este mes (no el pasado), para
+  // enseñar que la app recuerda el peso aunque el ejercicio no saliera.
+  await prisma.setLog.deleteMany({});
+  await prisma.routine.deleteMany({}); // borra en cascada días y ejercicios
+  await prisma.exercise.deleteMany({});
+
+  const catalogo = [
+    ['Sentadilla goblet', 'Pierna'], ['Prensa de piernas', 'Pierna'], ['Zancadas con mancuernas', 'Pierna'],
+    ['Peso muerto rumano', 'Femoral'], ['Hip thrust', 'Glúteo'], ['Press banca', 'Pecho'],
+    ['Press inclinado con mancuernas', 'Pecho'], ['Remo con mancuerna', 'Espalda'], ['Jalón al pecho', 'Espalda'],
+    ['Press militar', 'Hombro'], ['Elevaciones laterales', 'Hombro'], ['Curl de bíceps', 'Brazo'],
+    ['Extensión de tríceps en polea', 'Brazo'], ['Plancha', 'Core'],
+  ];
+  const ej = {};
+  for (const [name, muscleGroup] of catalogo) {
+    ej[name] = await prisma.exercise.create({ data: { name, muscleGroup } });
+  }
+
+  // [ejercicio, series, reps, descanso, peso inicial del usuario demo, subida por semana]
+  const PLANTILLAS = {
+    // offset de mes: 0 = este mes, -1 = el anterior, -2 = hace dos meses
+    '-2': {
+      TWO_DAYS: [
+        ['Pierna y glúteo', [['Sentadilla goblet', 4, '10', 90, 14, 1], ['Hip thrust', 3, '12', 60, 30, 2.5], ['Plancha', 3, '30 seg', 45, 0, 0]]],
+        ['Torso', [['Press banca', 4, '8-10', 120, 30, 1.25], ['Remo con mancuerna', 3, '10-12', 90, 12, 1]]],
+      ],
+    },
+    '-1': {
+      TWO_DAYS: [
+        ['Pierna y glúteo', [['Prensa de piernas', 4, '10-12', 90, 60, 5], ['Hip thrust', 3, '10', 60, 40, 2.5], ['Peso muerto rumano', 3, '10', 90, 20, 2]]],
+        ['Torso', [['Press banca', 4, '8', 120, 35, 1.25], ['Jalón al pecho', 3, '10-12', 90, 30, 2.5], ['Elevaciones laterales', 3, '15', 45, 4, 0.5]]],
+      ],
+    },
+    '0': {
+      TWO_DAYS: [
+        ['Pierna y glúteo', [['Sentadilla goblet', 4, '8-10', 90, 20, 1], ['Hip thrust', 4, '10', 60, 45, 2.5], ['Zancadas con mancuernas', 3, '10 por pierna', 60, 8, 1]]],
+        ['Torso', [['Press banca', 4, '6-8', 120, 37.5, 1.25], ['Remo con mancuerna', 3, '10', 90, 16, 1], ['Press militar', 3, '10', 90, 20, 1.25]]],
+      ],
+    },
+  };
+  // Las tarifas de 1 y 3 días reutilizan los ejercicios de la de 2 días
+  const tablaDeTarifa = (plantilla2, plan) => {
+    if (plan === 'TWO_DAYS') return plantilla2;
+    if (plan === 'ONE_DAY') {
+      return [['Cuerpo completo', [plantilla2[0][1][0], plantilla2[1][1][0], plantilla2[0][1][1], plantilla2[1][1][1]]]];
+    }
+    return [...plantilla2, ['Hombro, brazo y core', [['Press militar', 3, '10', 90, 20, 1], ['Curl de bíceps', 3, '12', 60, 8, 0.5], ['Extensión de tríceps en polea', 3, '12', 60, 15, 1], ['Plancha', 3, '40 seg', 45, 0, 0]]]];
+  };
+
+  const ahoraTablas = new Date();
+  const mesConOffset = (offset) => {
+    const d = new Date(ahoraTablas.getFullYear(), ahoraTablas.getMonth() + offset, 1);
+    return { year: d.getFullYear(), month: d.getMonth() + 1 };
+  };
+  const TITULOS = { '-2': 'Adaptación', '-1': 'Volumen', '0': 'Fuerza base' };
+
+  for (const offset of Object.keys(PLANTILLAS)) {
+    const { year, month } = mesConOffset(Number(offset));
+    // Misma tabla para la versión de hombre y la de mujer (es una demo)
+    for (const [plan, variant] of ['ONE_DAY', 'TWO_DAYS', 'THREE_DAYS'].flatMap((p) => [[p, 'MEN'], [p, 'WOMEN']])) {
+      const dias = tablaDeTarifa(PLANTILLAS[offset].TWO_DAYS, plan);
+      await prisma.routine.create({
+        data: {
+          year, month, weeklyPlan: plan, variant, title: TITULOS[offset],
+          notes: offset === '0' ? 'Calienta 10 minutos antes de empezar y apunta tus pesos al terminar cada ejercicio.' : null,
+          days: {
+            create: dias.map(([name, ejercicios], i) => ({
+              dayNumber: i + 1,
+              name,
+              exercises: {
+                create: ejercicios.map(([nombre, sets, reps, rest], orden) => ({
+                  exerciseId: ej[nombre].id, order: orden, sets, reps, restSeconds: rest,
+                  // Este mes, ejercicios de dos en dos en superserie (bloques)
+                  block: offset === '0' ? Math.floor(orden / 2) : orden,
+                })),
+              },
+            })),
+          },
+        },
+      });
+    }
+  }
+
+  // Pesos del usuario demo (tarifa de 2 días): martes = día 1, jueves = día 2,
+  // desde hace dos meses hasta ayer, subiendo un poco cada semana.
+  const diaISOLocal = (d) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const redondear = (kg) => Math.round(kg / 1.25) * 1.25;
+  const inicioLogs = new Date(ahoraTablas.getFullYear(), ahoraTablas.getMonth() - 2, 1);
+  const hoyLocal = new Date(ahoraTablas.getFullYear(), ahoraTablas.getMonth(), ahoraTablas.getDate());
+  const series = [];
+  for (let d = new Date(inicioLogs); d < hoyLocal; d.setDate(d.getDate() + 1)) {
+    const diaSemana = d.getDay();
+    if (diaSemana !== 2 && diaSemana !== 4) continue; // martes y jueves
+    const offset = (d.getFullYear() - ahoraTablas.getFullYear()) * 12 + d.getMonth() - ahoraTablas.getMonth();
+    const plantilla = PLANTILLAS[String(offset)]?.TWO_DAYS;
+    if (!plantilla) continue;
+    const [, ejercicios] = plantilla[diaSemana === 2 ? 0 : 1];
+    const semanaDelMes = Math.floor((d.getDate() - 1) / 7);
+    for (const [nombre, sets, reps, , pesoInicial, subida] of ejercicios) {
+      const objetivo = parseInt(reps, 10) || 10;
+      const peso = redondear(pesoInicial + subida * semanaDelMes);
+      for (let n = 1; n <= sets; n++) {
+        series.push({
+          userId: usuarioPrincipal.id,
+          exerciseId: ej[nombre].id,
+          sessionDate: new Date(`${diaISOLocal(d)}T00:00:00.000Z`),
+          setNumber: n,
+          weight: peso,
+          // la última serie cuesta un poco más
+          reps: n === sets && objetivo > 6 ? objetivo - 2 : objetivo,
+        });
+      }
+    }
+  }
+  await prisma.setLog.createMany({ data: series });
 
   console.log(
     'Listo. Usuarios:', todosLosUsuarios.length + 1, '(+admin) — Clases:', clases.length,
